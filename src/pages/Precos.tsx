@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/home/Footer";
@@ -7,9 +6,9 @@ import { Check, X, ChevronDown, ChevronUp } from "lucide-react";
 
 interface PlanFeature {
   feature: string;
-  basic: boolean;
-  premium: boolean;
-  family: boolean;
+  basic: boolean | number;
+  premium: boolean | number;
+  family: boolean | number;
 }
 
 interface PricingFAQ {
