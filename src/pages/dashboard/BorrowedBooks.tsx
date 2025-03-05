@@ -3,7 +3,6 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { BookOpen, Clock, ChevronRight } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
-import { Dashboard } from "@/components/ui/dashboard";
 
 // Mock data for borrowed books
 const borrowedBooks = [
