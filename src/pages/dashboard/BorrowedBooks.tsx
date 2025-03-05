@@ -39,12 +39,35 @@ const borrowedBooks = [
 ];
 
 const BorrowedBooks = () => {
+  // In a real app, this would come from your auth context
+  const isPremium = localStorage.getItem('userSubscription') === 'premium';
+  
+  // Get remaining reading time for today (for free users)
+  const remainingTime = !isPremium 
+    ? parseInt(localStorage.getItem('remainingReadingTime') || '7200', 10)
+    : null;
+    
+  // Format time display
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  };
+  
   return (
     <div className="bg-slate-50 min-h-screen">
       <div className="md:pl-64">
         <main className="py-6 px-4 sm:px-6 md:py-8 md:px-8">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-2xl font-semibold text-gray-900">Livros Emprestados</h1>
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">Livros Emprestados</h1>
+              {!isPremium && remainingTime !== null && (
+                <p className="text-sm flex items-center mt-1 text-gray-600">
+                  <Clock className="h-4 w-4 mr-1 text-primary" />
+                  Tempo restante hoje: {formatTime(remainingTime)}
+                </p>
+              )}
+            </div>
             <Link to="/biblioteca">
               <CustomButton variant="outline" size="sm">
                 Emprestar mais livros

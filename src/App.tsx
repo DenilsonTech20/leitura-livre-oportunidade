@@ -16,6 +16,11 @@ import BorrowedBooks from "./pages/dashboard/BorrowedBooks";
 import History from "./pages/dashboard/History";
 import Settings from "./pages/dashboard/Settings";
 import Sobre from "./pages/Sobre";
+import ReadBook from "./pages/book/ReadBook";
+import Subscription from "./pages/account/Subscription";
+
+// For a real app, we'd have user context/provider here
+// and store auth state, subscription info, etc.
 
 const queryClient = new QueryClient();
 
@@ -41,6 +46,12 @@ const App = () => (
           <Route path="/dashboard/emprestados" element={<BorrowedBooks />} />
           <Route path="/dashboard/historico" element={<History />} />
           <Route path="/dashboard/configuracoes" element={<Settings />} />
+          
+          {/* Book Reader */}
+          <Route path="/livro/:bookId" element={<ReadBook />} />
+          
+          {/* Account Management */}
+          <Route path="/account/subscription" element={<Subscription />} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
