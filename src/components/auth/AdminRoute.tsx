@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface AdminRouteProps {
@@ -8,44 +8,8 @@ interface AdminRouteProps {
 }
 
 const AdminRoute = ({ children }: AdminRouteProps) => {
-  const { currentUser, loading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [adminLoading, setAdminLoading] = useState(true);
-
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (!currentUser) {
-        setAdminLoading(false);
-        setIsAdmin(false);
-        return;
-      }
-
-      try {
-        // Make API call to check if user is admin
-        const response = await fetch('/api/auth/check-admin', {
-          headers: {
-            'Authorization': `Bearer ${await currentUser.getIdToken()}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setIsAdmin(data.isAdmin);
-        } else {
-          setIsAdmin(false);
-        }
-      } catch (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
-      } finally {
-        setAdminLoading(false);
-      }
-    };
-
-    if (!loading) {
-      checkAdminStatus();
-    }
-  }, [currentUser, loading]);
+  const { currentUser, loading, isAdmin, adminLoading } = useAuth();
+  const location = useLocation();
 
   if (loading || adminLoading) {
     return (
@@ -55,7 +19,11 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
     );
   }
 
-  if (!currentUser || !isAdmin) {
+  if (!currentUser) {
+    return <Navigate to="/login" state={{ from: location }} />;
+  }
+
+  if (!isAdmin) {
     return <Navigate to="/dashboard" />;
   }
 

@@ -1,37 +1,69 @@
-
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
 import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const { login, loginWithGoogle, currentUser, isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the redirect path from location state, or default to dashboard
+  const from = location.state?.from?.pathname || "/dashboard";
+  
+  useEffect(() => {
+    // If user is already logged in, redirect
+    if (currentUser) {
+      if (isAdmin) {
+        navigate("/admin/books");
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  }, [currentUser, isAdmin, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!email || !password) {
+      toast({
+        title: "Erro ao fazer login",
+        description: "Por favor, preencha todos os campos",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
-    // Simulate login delay
-    setTimeout(() => {
-      if (email && password) {
-        toast({
-          title: "Login realizado com sucesso!",
-          description: "Você está sendo redirecionado para o dashboard.",
-        });
-        // Navigate to dashboard later
-      } else {
-        toast({
-          title: "Erro ao fazer login",
-          description: "Por favor, verifique seu email e senha.",
-          variant: "destructive",
-        });
-      }
+    try {
+      await login(email, password);
+      // Redirect handled in useEffect
+    } catch (error) {
+      console.error("Login error:", error);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
+  };
+  
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    
+    try {
+      await loginWithGoogle();
+      // Redirect handled in useEffect
+    } catch (error) {
+      console.error("Google login error:", error);
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   return (
@@ -173,12 +205,15 @@ const Login = () => {
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <CustomButton variant="outline" className="w-full">
+            <div className="mt-6 grid grid-cols-1 gap-3">
+              <CustomButton 
+                variant="outline" 
+                className="w-full"
+                onClick={handleGoogleLogin}
+                loading={isGoogleLoading}
+                disabled={isGoogleLoading}
+              >
                 Google
-              </CustomButton>
-              <CustomButton variant="outline" className="w-full">
-                Facebook
               </CustomButton>
             </div>
           </div>

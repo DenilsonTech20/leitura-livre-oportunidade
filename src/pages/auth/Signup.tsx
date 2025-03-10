@@ -1,9 +1,9 @@
-
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
 import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Signup = () => {
   const [name, setName] = useState("");
@@ -13,6 +13,16 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const { signup, loginWithGoogle, currentUser } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // If user is already logged in, redirect to dashboard
+    if (currentUser) {
+      navigate("/dashboard");
+    }
+  }, [currentUser, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,23 +38,27 @@ const Signup = () => {
     
     setIsLoading(true);
     
-    // Simulate signup delay
-    setTimeout(() => {
-      if (name && email && password) {
-        toast({
-          title: "Conta criada com sucesso!",
-          description: "Você já pode fazer login.",
-        });
-        // Navigate to login later
-      } else {
-        toast({
-          title: "Erro ao criar conta",
-          description: "Por favor, preencha todos os campos corretamente.",
-          variant: "destructive",
-        });
-      }
+    try {
+      await signup(email, password, name);
+      // Redirect handled in useEffect
+    } catch (error) {
+      console.error("Signup error:", error);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
+  };
+  
+  const handleGoogleSignup = async () => {
+    setIsGoogleLoading(true);
+    
+    try {
+      await loginWithGoogle();
+      // Redirect handled in useEffect
+    } catch (error) {
+      console.error("Google signup error:", error);
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   return (
@@ -249,12 +263,15 @@ const Signup = () => {
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <CustomButton variant="outline" className="w-full">
+            <div className="mt-6 grid grid-cols-1 gap-3">
+              <CustomButton 
+                variant="outline" 
+                className="w-full"
+                onClick={handleGoogleSignup}
+                loading={isGoogleLoading}
+                disabled={isGoogleLoading}
+              >
                 Google
-              </CustomButton>
-              <CustomButton variant="outline" className="w-full">
-                Facebook
               </CustomButton>
             </div>
           </div>

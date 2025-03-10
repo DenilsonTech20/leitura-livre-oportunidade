@@ -1,14 +1,17 @@
 
 import React, { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Menu, X, BookOpen, User } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, X, BookOpen, User, LogOut } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUser, logout, isAdmin } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -22,12 +25,28 @@ const Navbar = () => {
     setIsMenuOpen(false);
   }, [location]);
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
   const navLinks = [
     { name: "Início", href: "/" },
     { name: "Biblioteca", href: "/biblioteca" },
     { name: "Preços", href: "/precos" },
     { name: "Sobre", href: "/sobre" },
   ];
+
+  const authLinks = currentUser ? [
+    { name: "Dashboard", href: "/dashboard" },
+    ...(isAdmin ? [{ name: "Admin", href: "/admin/books" }] : []),
+  ] : [];
+
+  const allNavLinks = [...navLinks, ...authLinks];
 
   return (
     <nav
@@ -49,7 +68,7 @@ const Navbar = () => {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex md:items-center md:space-x-8">
-          {navLinks.map((link) => (
+          {allNavLinks.map((link) => (
             <Link
               key={link.name}
               to={link.href}
@@ -67,23 +86,42 @@ const Navbar = () => {
 
         {/* Auth Buttons - Desktop */}
         <div className="hidden md:flex md:items-center md:space-x-4">
-          <Link to="/login">
-            <CustomButton
-              variant="ghost"
-              size="sm"
-              className="text-sm font-normal"
-            >
-              Entrar
-            </CustomButton>
-          </Link>
-          <Link to="/signup">
-            <CustomButton
-              size="sm"
-              className="text-sm"
-            >
-              Registrar
-            </CustomButton>
-          </Link>
+          {currentUser ? (
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-muted-foreground">
+                {currentUser.displayName || currentUser.email}
+              </div>
+              <CustomButton
+                variant="ghost"
+                size="sm"
+                className="text-sm font-normal"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sair
+              </CustomButton>
+            </div>
+          ) : (
+            <>
+              <Link to="/login">
+                <CustomButton
+                  variant="ghost"
+                  size="sm"
+                  className="text-sm font-normal"
+                >
+                  Entrar
+                </CustomButton>
+              </Link>
+              <Link to="/signup">
+                <CustomButton
+                  size="sm"
+                  className="text-sm"
+                >
+                  Registrar
+                </CustomButton>
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
@@ -103,7 +141,7 @@ const Navbar = () => {
       {isMenuOpen && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-white shadow-lg animate-slide-in py-5">
           <div className="flex flex-col space-y-3 px-5">
-            {navLinks.map((link) => (
+            {allNavLinks.map((link) => (
               <Link
                 key={link.name}
                 to={link.href}
@@ -118,14 +156,33 @@ const Navbar = () => {
               </Link>
             ))}
             <hr className="my-1" />
-            <Link
-              to="/login"
-              className="flex items-center space-x-2 px-3 py-2 hover:bg-slate-50 rounded-md"
-            >
-              <User size={18} />
-              <span>Entrar</span>
-            </Link>
-            <CustomButton className="mt-2">Registrar</CustomButton>
+            {currentUser ? (
+              <>
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  {currentUser.displayName || currentUser.email}
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-2 px-3 py-2 hover:bg-slate-50 rounded-md text-left"
+                >
+                  <LogOut size={18} />
+                  <span>Sair</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="flex items-center space-x-2 px-3 py-2 hover:bg-slate-50 rounded-md"
+                >
+                  <User size={18} />
+                  <span>Entrar</span>
+                </Link>
+                <Link to="/signup">
+                  <CustomButton className="mt-2 w-full">Registrar</CustomButton>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}
