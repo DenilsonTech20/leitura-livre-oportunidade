@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { FileType } from '@prisma/client';
+import { FileType } from '@/types';
 import { Button } from '@/components/ui/button';
 
 interface DocViewerProps {
@@ -15,7 +15,7 @@ const DocViewer = ({ url, fileType, onClose }: DocViewerProps) => {
       <div className="flex justify-between items-center p-4 border-b">
         <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
         <span className="text-sm font-medium">
-          {fileType === 'DOCX' ? 'Documento Word' : 'Apresentação PowerPoint'}
+          {fileType === FileType.DOCX ? 'Documento Word' : 'Apresentação PowerPoint'}
         </span>
       </div>
       

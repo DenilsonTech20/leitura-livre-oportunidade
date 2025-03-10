@@ -6,10 +6,11 @@ import {
   Panel,
   PanelResizeHandle,
   ImperativePanelHandle,
+  Direction
 } from "react-resizable-panels";
 
 interface SplitProps extends React.ComponentPropsWithoutRef<typeof PanelGroup> {
-  direction?: "horizontal" | "vertical";
+  direction: "horizontal" | "vertical"; // Make direction required
 }
 
 const Split = React.forwardRef<
@@ -23,7 +24,7 @@ const Split = React.forwardRef<
       "flex h-full w-full overflow-hidden",
       className
     )}
-    direction={direction}
+    direction={direction as Direction}
     {...props}
   />
 ));
@@ -32,12 +33,10 @@ Split.displayName = "Split";
 interface SplitPaneProps extends React.ComponentPropsWithoutRef<typeof Panel> {
   className?: string;
   defaultSize?: number;
-  size?: number;
   minSize?: number;
   maxSize?: number;
   collapsible?: boolean;
   collapsedSize?: number;
-  ref?: React.Ref<ImperativePanelHandle>;
 }
 
 const SplitPane = React.forwardRef<
@@ -48,7 +47,6 @@ const SplitPane = React.forwardRef<
     {
       className,
       defaultSize,
-      size,
       minSize = 10,
       maxSize = 90,
       collapsible,
@@ -61,7 +59,6 @@ const SplitPane = React.forwardRef<
       ref={ref}
       className={cn("overflow-auto", className)}
       defaultSize={defaultSize}
-      size={size}
       minSize={minSize}
       maxSize={maxSize}
       collapsible={collapsible}

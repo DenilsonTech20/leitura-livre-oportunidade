@@ -21,13 +21,13 @@ import {
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { FileType } from '@prisma/client';
+import { FileType } from '@/types';
 
 const formSchema = z.object({
   title: z.string().min(1, 'O título é obrigatório'),
   author: z.string().min(1, 'O autor é obrigatório'),
   description: z.string().optional(),
-  fileType: z.enum(['PDF', 'DOCX', 'PPT', 'EPUB', 'OTHER'] as const),
+  fileType: z.enum([FileType.PDF, FileType.DOCX, FileType.PPT, FileType.EPUB, FileType.OTHER] as const),
   coverImage: z.instanceof(File).optional(),
   bookFile: z.instanceof(File)
 });

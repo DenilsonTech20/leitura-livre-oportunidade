@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Split, SplitPane } from '@/components/ui/split';
@@ -9,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { MessageSquareText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FileType } from "@prisma/client";
+import { FileType } from "@/types";
 
 // This will be replaced by actual API calls
 const fetchBookContent = async (bookId: string) => {
@@ -23,7 +22,7 @@ const fetchBookContent = async (bookId: string) => {
     author: "Paulo Coelho",
     progress: 0,
     fileUrl: "https://www.africau.edu/images/default/sample.pdf", // Sample PDF URL
-    fileType: "PDF" as FileType,
+    fileType: FileType.PDF,
     content: Array(50).fill(0).map((_, i) => 
       `<p>Página ${i + 1} do livro. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
       <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>

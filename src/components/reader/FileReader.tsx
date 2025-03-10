@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import PDFReader from './PDFReader';
 import DocViewer from './DocViewer';
 import EPUBReader from './EPUBReader';
-import { FileType } from '@prisma/client';
+import { FileType } from '@/types';
 
 interface FileReaderProps {
   fileUrl: string;
@@ -66,15 +66,15 @@ const FileReader = ({
       )}
       
       <div className="flex-grow">
-        {fileType === 'PDF' && <PDFReader url={fileUrl} onClose={onClose} />}
-        {(fileType === 'DOCX' || fileType === 'PPT') && 
+        {fileType === FileType.PDF && <PDFReader url={fileUrl} onClose={onClose} />}
+        {(fileType === FileType.DOCX || fileType === FileType.PPT) && 
           <DocViewer 
             url={fileUrl} 
             fileType={fileType} 
             onClose={onClose} 
           />
         }
-        {fileType === 'EPUB' && 
+        {fileType === FileType.EPUB && 
           <EPUBReader 
             url={fileUrl} 
             title={title} 
@@ -82,7 +82,7 @@ const FileReader = ({
             onClose={onClose} 
           />
         }
-        {fileType === 'OTHER' && (
+        {fileType === FileType.OTHER && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center p-8">
               <h3 className="text-xl font-medium mb-2">Formato não suportado</h3>

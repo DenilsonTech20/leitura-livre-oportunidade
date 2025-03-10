@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Table, 
@@ -19,7 +18,7 @@ import {
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import AddBookForm from '@/components/admin/AddBookForm';
 import EditBookForm from '@/components/admin/EditBookForm';
-import { Book, FileType, BookStatus } from '@prisma/client';
+import { Book, FileType, BookStatus } from '@/types';
 
 const AdminBooks = () => {
   const [books, setBooks] = useState<Book[]>([]);

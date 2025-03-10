@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -18,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { FileType, LoanStatus } from '@prisma/client';
+import { FileType, LoanStatus } from '@/types';
 
 interface Loan {
   id: string;
@@ -55,13 +54,13 @@ const BorrowedBooks = () => {
           bookId: '101',
           startTime: new Date().toISOString(),
           endTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          status: 'ACTIVE',
+          status: LoanStatus.ACTIVE,
           book: {
             id: '101',
             title: 'O Alquimista',
             author: 'Paulo Coelho',
             cover: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-            fileType: 'PDF'
+            fileType: FileType.PDF
           }
         },
         {
@@ -69,13 +68,13 @@ const BorrowedBooks = () => {
           bookId: '102',
           startTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
           endTime: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
-          status: 'ACTIVE',
+          status: LoanStatus.ACTIVE,
           book: {
             id: '102',
             title: 'Dom Casmurro',
             author: 'Machado de Assis',
             cover: 'https://images.unsplash.com/photo-1541963463532-d68292c34b19?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-            fileType: 'EPUB'
+            fileType: FileType.EPUB
           }
         }
       ];
@@ -112,7 +111,7 @@ const BorrowedBooks = () => {
       setLoans(prev => 
         prev.map(loan => 
           loan.id === loanId 
-            ? { ...loan, status: 'RETURNED' as LoanStatus } 
+            ? { ...loan, status: LoanStatus.RETURNED } 
             : loan
         )
       );
@@ -129,13 +128,13 @@ const BorrowedBooks = () => {
 
   const getFileTypeIcon = (fileType: FileType) => {
     switch (fileType) {
-      case 'PDF':
+      case FileType.PDF:
         return <FileText className="h-4 w-4 text-red-500" />;
-      case 'DOCX':
+      case FileType.DOCX:
         return <FileText className="h-4 w-4 text-blue-500" />;
-      case 'PPT':
+      case FileType.PPT:
         return <FileText className="h-4 w-4 text-orange-500" />;
-      case 'EPUB':
+      case FileType.EPUB:
         return <BookOpen className="h-4 w-4 text-green-500" />;
       default:
         return <FileText className="h-4 w-4 text-gray-500" />;
@@ -234,22 +233,22 @@ const BorrowedBooks = () => {
                   <TableCell>
                     <span 
                       className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        loan.status === 'ACTIVE' 
+                        loan.status === LoanStatus.ACTIVE
                           ? 'bg-green-100 text-green-800' 
-                          : loan.status === 'RETURNED' 
+                          : loan.status === LoanStatus.RETURNED
                             ? 'bg-blue-100 text-blue-800' 
                             : 'bg-red-100 text-red-800'
                       }`}
                     >
-                      {loan.status === 'ACTIVE' 
+                      {loan.status === LoanStatus.ACTIVE
                         ? 'Ativo' 
-                        : loan.status === 'RETURNED' 
+                        : loan.status === LoanStatus.RETURNED
                           ? 'Devolvido' 
                           : 'Expirado'}
                     </span>
                   </TableCell>
                   <TableCell>
-                    {loan.status === 'ACTIVE' ? (
+                    {loan.status === LoanStatus.ACTIVE ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">

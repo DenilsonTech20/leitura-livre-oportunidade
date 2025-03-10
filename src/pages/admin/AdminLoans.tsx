@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { MoreVertical, RefreshCw, Clock, CheckCircle } from 'lucide-react';
-import { Loan, LoanStatus } from '@prisma/client';
+import { Loan, LoanStatus } from '@/types';
 
 interface LoanWithRelations extends Loan {
   user: {
@@ -176,20 +176,20 @@ const AdminLoans = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {loan.status === 'ACTIVE' && (
-                          <DropdownMenuItem onClick={() => handleStatusChange(loan.id, 'RETURNED')}>
+                        {loan.status === LoanStatus.ACTIVE && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(loan.id, LoanStatus.RETURNED)}>
                             <CheckCircle className="mr-2 h-4 w-4" />
                             <span>Marcar como devolvido</span>
                           </DropdownMenuItem>
                         )}
-                        {loan.status === 'ACTIVE' && (
-                          <DropdownMenuItem onClick={() => handleStatusChange(loan.id, 'EXPIRED')}>
+                        {loan.status === LoanStatus.ACTIVE && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(loan.id, LoanStatus.EXPIRED)}>
                             <Clock className="mr-2 h-4 w-4" />
                             <span>Marcar como expirado</span>
                           </DropdownMenuItem>
                         )}
-                        {loan.status !== 'ACTIVE' && (
-                          <DropdownMenuItem onClick={() => handleStatusChange(loan.id, 'ACTIVE')}>
+                        {loan.status !== LoanStatus.ACTIVE && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(loan.id, LoanStatus.ACTIVE)}>
                             <RefreshCw className="mr-2 h-4 w-4" />
                             <span>Reativar empréstimo</span>
                           </DropdownMenuItem>
