@@ -3,7 +3,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import Index from "./pages/Index";
 import Biblioteca from "./pages/Biblioteca";
 import Precos from "./pages/Precos";
@@ -18,46 +20,55 @@ import Settings from "./pages/dashboard/Settings";
 import Sobre from "./pages/Sobre";
 import ReadBook from "./pages/book/ReadBook";
 import Subscription from "./pages/account/Subscription";
-
-// For a real app, we'd have user context/provider here
-// and store auth state, subscription info, etc.
+import AdminBooks from "./pages/admin/AdminBooks";
+import AdminLoans from "./pages/admin/AdminLoans";
+import PrivateRoute from "./components/auth/PrivateRoute";
+import AdminRoute from "./components/auth/AdminRoute";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/biblioteca" element={<Biblioteca />} />
-          <Route path="/precos" element={<Precos />} />
-          <Route path="/sobre" element={<Sobre />} />
-          
-          {/* Auth Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          
-          {/* Dashboard Routes */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/emprestados" element={<BorrowedBooks />} />
-          <Route path="/dashboard/historico" element={<History />} />
-          <Route path="/dashboard/configuracoes" element={<Settings />} />
-          
-          {/* Book Reader */}
-          <Route path="/livro/:bookId" element={<ReadBook />} />
-          
-          {/* Account Management */}
-          <Route path="/account/subscription" element={<Subscription />} />
-          
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <SubscriptionProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/biblioteca" element={<Biblioteca />} />
+              <Route path="/precos" element={<Precos />} />
+              <Route path="/sobre" element={<Sobre />} />
+              
+              {/* Auth Routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              
+              {/* Dashboard Routes - Protected */}
+              <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+              <Route path="/dashboard/emprestados" element={<PrivateRoute><BorrowedBooks /></PrivateRoute>} />
+              <Route path="/dashboard/historico" element={<PrivateRoute><History /></PrivateRoute>} />
+              <Route path="/dashboard/configuracoes" element={<PrivateRoute><Settings /></PrivateRoute>} />
+              
+              {/* Book Reader - Protected */}
+              <Route path="/livro/:bookId" element={<PrivateRoute><ReadBook /></PrivateRoute>} />
+              
+              {/* Account Management - Protected */}
+              <Route path="/account/subscription" element={<PrivateRoute><Subscription /></PrivateRoute>} />
+              
+              {/* Admin Routes - Protected and Admin Only */}
+              <Route path="/admin/books" element={<AdminRoute><AdminBooks /></AdminRoute>} />
+              <Route path="/admin/loans" element={<AdminRoute><AdminLoans /></AdminRoute>} />
+              
+              {/* Catch-all Route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </SubscriptionProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

@@ -1,164 +1,282 @@
 
-import React from "react";
-import { Link } from "react-router-dom";
-import { BookOpen, Clock, ChevronRight } from "lucide-react";
-import { CustomButton } from "@/components/ui/custom-button";
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { BookOpen, FileText, Clock, MoreHorizontal, Check, RefreshCw } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
+import { FileType, LoanStatus } from '@prisma/client';
 
-// Mock data for borrowed books
-const borrowedBooks = [
-  {
-    id: "1",
-    title: "O Alquimista",
-    author: "Paulo Coelho",
-    cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    format: "ebook",
-    progress: 45,
-    dueDate: "10/11/2023",
-    daysLeft: 7,
-  },
-  {
-    id: "2",
-    title: "Dom Casmurro",
-    author: "Machado de Assis",
-    cover: "https://images.unsplash.com/photo-1541963463532-d68292c34b19?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    format: "both",
-    progress: 78,
-    dueDate: "15/11/2023",
-    daysLeft: 12,
-  },
-  {
-    id: "3",
-    title: "Ensaio Sobre a Cegueira",
-    author: "José Saramago",
-    cover: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    format: "audio",
-    progress: 22,
-    dueDate: "05/11/2023",
-    daysLeft: 2,
-  },
-];
+interface Loan {
+  id: string;
+  bookId: string;
+  startTime: string;
+  endTime: string | null;
+  status: LoanStatus;
+  book: {
+    id: string;
+    title: string;
+    author: string;
+    cover: string;
+    fileType: FileType;
+  };
+}
 
 const BorrowedBooks = () => {
-  // In a real app, this would come from your auth context
-  const isPremium = localStorage.getItem('userSubscription') === 'premium';
-  
-  // Get remaining reading time for today (for free users)
-  const remainingTime = !isPremium 
-    ? parseInt(localStorage.getItem('remainingReadingTime') || '7200', 10)
-    : null;
-    
-  // Format time display
-  const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const fetchLoans = async () => {
+    try {
+      setLoading(true);
+      // This will be replaced with an actual API call
+      // Mocking data for now
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const mockLoans: Loan[] = [
+        {
+          id: '1',
+          bookId: '101',
+          startTime: new Date().toISOString(),
+          endTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          status: 'ACTIVE',
+          book: {
+            id: '101',
+            title: 'O Alquimista',
+            author: 'Paulo Coelho',
+            cover: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+            fileType: 'PDF'
+          }
+        },
+        {
+          id: '2',
+          bookId: '102',
+          startTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          endTime: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+          status: 'ACTIVE',
+          book: {
+            id: '102',
+            title: 'Dom Casmurro',
+            author: 'Machado de Assis',
+            cover: 'https://images.unsplash.com/photo-1541963463532-d68292c34b19?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+            fileType: 'EPUB'
+          }
+        }
+      ];
+      
+      setLoans(mockLoans);
+      
+    } catch (err) {
+      console.error('Error fetching loans:', err);
+      setError('Não foi possível carregar seus livros emprestados. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   };
-  
+
+  useEffect(() => {
+    fetchLoans();
+  }, []);
+
+  const handleReadBook = (bookId: string) => {
+    navigate(`/livro/${bookId}`);
+  };
+
+  const handleReturnBook = async (loanId: string, bookTitle: string) => {
+    try {
+      // This will be replaced with an actual API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      toast({
+        title: 'Livro devolvido com sucesso',
+        description: `"${bookTitle}" foi devolvido.`,
+      });
+      
+      // Update the local state to reflect the change
+      setLoans(prev => 
+        prev.map(loan => 
+          loan.id === loanId 
+            ? { ...loan, status: 'RETURNED' as LoanStatus } 
+            : loan
+        )
+      );
+      
+    } catch (err) {
+      console.error('Error returning book:', err);
+      toast({
+        title: 'Erro ao devolver livro',
+        description: 'Ocorreu um erro ao devolver o livro. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const getFileTypeIcon = (fileType: FileType) => {
+    switch (fileType) {
+      case 'PDF':
+        return <FileText className="h-4 w-4 text-red-500" />;
+      case 'DOCX':
+        return <FileText className="h-4 w-4 text-blue-500" />;
+      case 'PPT':
+        return <FileText className="h-4 w-4 text-orange-500" />;
+      case 'EPUB':
+        return <BookOpen className="h-4 w-4 text-green-500" />;
+      default:
+        return <FileText className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const calculateDaysLeft = (endTimeString: string | null) => {
+    if (!endTimeString) return '∞';
+    
+    const endTime = new Date(endTimeString).getTime();
+    const now = Date.now();
+    const diffInDays = Math.ceil((endTime - now) / (1000 * 60 * 60 * 24));
+    
+    return diffInDays <= 0 ? 'Expirado' : `${diffInDays} dias`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center">
+        <p className="text-red-500 mb-4">{error}</p>
+        <Button onClick={fetchLoans}>Tentar novamente</Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-slate-50 min-h-screen">
-      <div className="md:pl-64">
-        <main className="py-6 px-4 sm:px-6 md:py-8 md:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Livros Emprestados</h1>
-              {!isPremium && remainingTime !== null && (
-                <p className="text-sm flex items-center mt-1 text-gray-600">
-                  <Clock className="h-4 w-4 mr-1 text-primary" />
-                  Tempo restante hoje: {formatTime(remainingTime)}
-                </p>
-              )}
-            </div>
-            <Link to="/biblioteca">
-              <CustomButton variant="outline" size="sm">
-                Emprestar mais livros
-              </CustomButton>
-            </Link>
-          </div>
-          
-          {borrowedBooks.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {borrowedBooks.map((book) => (
-                <div 
-                  key={book.id} 
-                  className="bg-white rounded-lg shadow overflow-hidden transition-all hover:shadow-md"
-                >
-                  <div className="p-5">
-                    <div className="flex items-start">
-                      <img
-                        className="h-24 w-16 object-cover rounded-sm flex-shrink-0"
-                        src={book.cover}
-                        alt={book.title}
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Meus Livros Emprestados</h1>
+        <Button size="sm" variant="outline" onClick={fetchLoans}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Atualizar
+        </Button>
+      </div>
+
+      {loans.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-lg shadow">
+          <BookOpen className="h-12 w-12 mx-auto text-gray-400" />
+          <h3 className="mt-4 text-lg font-medium">Nenhum livro emprestado</h3>
+          <p className="mt-2 text-gray-500">
+            Visite a <Link to="/biblioteca" className="text-primary hover:underline">biblioteca</Link> para emprestar livros.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Livro</TableHead>
+                <TableHead>Formato</TableHead>
+                <TableHead>Data de Empréstimo</TableHead>
+                <TableHead>Tempo Restante</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loans.map((loan) => (
+                <TableRow key={loan.id}>
+                  <TableCell>
+                    <div className="flex items-center space-x-3">
+                      <img 
+                        src={loan.book.cover} 
+                        alt={loan.book.title}
+                        className="h-12 w-10 object-cover rounded"
                       />
-                      <div className="ml-4 flex-1">
-                        <h3 className="text-lg font-medium text-gray-900">{book.title}</h3>
-                        <p className="text-sm text-gray-500">{book.author}</p>
-                        
-                        <div className="mt-2 flex items-center text-sm text-gray-500">
-                          <Clock className="h-4 w-4 mr-1 text-primary" />
-                          <span>Vence em {book.daysLeft} dias ({book.dueDate})</span>
-                        </div>
-                        
-                        <div className="mt-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-medium text-gray-700">
-                              Progresso: {book.progress}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-primary rounded-full h-2" 
-                              style={{ width: `${book.progress}%` }}
-                            ></div>
-                          </div>
-                        </div>
+                      <div>
+                        <div className="font-medium">{loan.book.title}</div>
+                        <div className="text-sm text-muted-foreground">{loan.book.author}</div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="border-t border-gray-200 px-5 py-3 bg-gray-50 flex justify-between items-center">
-                    <span className="inline-flex items-center text-xs font-medium">
-                      {book.format === "ebook" && (
-                        <span className="text-blue-600">E-book</span>
-                      )}
-                      {book.format === "audio" && (
-                        <span className="text-purple-600">Audiolivro</span>
-                      )}
-                      {book.format === "both" && (
-                        <span className="text-green-600">E-book + Áudio</span>
-                      )}
-                    </span>
-                    
-                    <Link 
-                      to={`/livro/${book.id}`}
-                      className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      {getFileTypeIcon(loan.book.fileType)}
+                      <span className="ml-1.5">{loan.book.fileType}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(loan.startTime).toLocaleDateString('pt-BR')}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 mr-1.5 text-amber-500" />
+                      {calculateDaysLeft(loan.endTime)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span 
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        loan.status === 'ACTIVE' 
+                          ? 'bg-green-100 text-green-800' 
+                          : loan.status === 'RETURNED' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-red-100 text-red-800'
+                      }`}
                     >
-                      Continuar leitura
-                      <ChevronRight className="ml-1 h-4 w-4" />
-                    </Link>
-                  </div>
-                </div>
+                      {loan.status === 'ACTIVE' 
+                        ? 'Ativo' 
+                        : loan.status === 'RETURNED' 
+                          ? 'Devolvido' 
+                          : 'Expirado'}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {loan.status === 'ACTIVE' ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleReadBook(loan.book.id)}>
+                            <BookOpen className="h-4 w-4 mr-2" />
+                            Ler agora
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleReturnBook(loan.id, loan.book.title)}>
+                            <Check className="h-4 w-4 mr-2" />
+                            Devolver
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <span className="text-sm text-gray-500">Indisponível</span>
+                    )}
+                  </TableCell>
+                </TableRow>
               ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-white rounded-lg shadow">
-              <BookOpen className="mx-auto h-12 w-12 text-gray-300" />
-              <h3 className="mt-2 text-lg font-medium text-gray-900">
-                Nenhum livro emprestado
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Você não possui nenhum livro emprestado no momento.
-              </p>
-              <div className="mt-6">
-                <Link to="/biblioteca">
-                  <CustomButton>
-                    Explorar Biblioteca
-                  </CustomButton>
-                </Link>
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 };
