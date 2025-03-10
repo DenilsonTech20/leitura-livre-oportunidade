@@ -37,6 +37,7 @@ const App = () => {
     const initializeAdmin = async () => {
       try {
         await createAdminUser("denilsonvines@gmail.com", "Admin0123");
+        console.log("Admin initialization attempted");
       } catch (error) {
         console.error("Error creating admin user:", error);
         // Don't display toast for this error as it might confuse users
