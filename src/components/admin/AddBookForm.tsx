@@ -48,7 +48,7 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
       title: '',
       author: '',
       description: '',
-      fileType: 'PDF'
+      fileType: FileType.PDF
     }
   });
 
@@ -154,11 +154,11 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="PDF">PDF</SelectItem>
-                  <SelectItem value="DOCX">Word (DOCX)</SelectItem>
-                  <SelectItem value="PPT">PowerPoint (PPT)</SelectItem>
-                  <SelectItem value="EPUB">EPUB</SelectItem>
-                  <SelectItem value="OTHER">Outro</SelectItem>
+                  <SelectItem value={FileType.PDF}>PDF</SelectItem>
+                  <SelectItem value={FileType.DOCX}>Word (DOCX)</SelectItem>
+                  <SelectItem value={FileType.PPT}>PowerPoint (PPT)</SelectItem>
+                  <SelectItem value={FileType.EPUB}>EPUB</SelectItem>
+                  <SelectItem value={FileType.OTHER}>Outro</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />

@@ -130,8 +130,8 @@ const ReadBook = () => {
       
       <div className="flex-grow">
         {showChat ? (
-          <Split className="h-full">
-            <SplitPane size={70} minSize={30}>
+          <Split direction="horizontal" className="h-full">
+            <SplitPane defaultSize={70} minSize={30}>
               <FileReader 
                 fileUrl={book.fileUrl}
                 fileType={book.fileType}

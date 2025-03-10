@@ -1,8 +1,9 @@
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
-// Firebase configuration - you'll need to provide your own API keys
+// Firebase configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -15,6 +16,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const storage = getStorage(app);
 
-export { auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut };
+export { app, auth, storage, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut };
 export default app;
