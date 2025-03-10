@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
@@ -15,19 +16,24 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Get the redirect path from location state, or default to dashboard
+  // Get the redirect path from location state, or default to dashboard/admin dashboard based on role
   const from = location.state?.from?.pathname || "/dashboard";
   
   useEffect(() => {
-    // If user is already logged in, redirect
+    // If user is already logged in, redirect based on admin status
     if (currentUser) {
       if (isAdmin) {
-        navigate("/admin/books");
+        // If the user was trying to access an admin route, send them there
+        if (from.startsWith('/admin')) {
+          navigate(from);
+        } else {
+          navigate("/admin/dashboard");
+        }
       } else {
         navigate("/dashboard");
       }
     }
-  }, [currentUser, isAdmin, navigate]);
+  }, [currentUser, isAdmin, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

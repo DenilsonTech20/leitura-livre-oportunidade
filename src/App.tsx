@@ -27,6 +27,7 @@ import PrivateRoute from "./components/auth/PrivateRoute";
 import AdminRoute from "./components/auth/AdminRoute";
 import { useEffect } from "react";
 import { createAdminUser } from "./lib/firebase";
+import { toast } from "./components/ui/use-toast";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,8 @@ const App = () => {
         await createAdminUser("denilsonvines@gmail.com", "Admin0123");
       } catch (error) {
         console.error("Error creating admin user:", error);
+        // Don't display toast for this error as it might confuse users
+        // The admin creation is a background operation
       }
     };
 

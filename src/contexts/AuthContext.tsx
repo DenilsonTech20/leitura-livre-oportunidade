@@ -49,15 +49,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log("Auth state changed, user:", user?.email);
       setCurrentUser(user);
       setLoading(false);
       
       if (user) {
         // Check admin status
         setAdminLoading(true);
-        const adminStatus = await checkAdminStatus(user);
-        setIsAdmin(adminStatus);
-        setAdminLoading(false);
+        try {
+          const adminStatus = await checkAdminStatus(user);
+          console.log("Admin status for", user.email, ":", adminStatus);
+          setIsAdmin(adminStatus);
+        } catch (error) {
+          console.error("Error checking admin status:", error);
+          setIsAdmin(false);
+        } finally {
+          setAdminLoading(false);
+        }
       } else {
         setIsAdmin(false);
         setAdminLoading(false);
@@ -79,6 +87,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       let message = "Erro ao fazer login";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         message = "Email ou senha incorretos";
+      } else if (error.code === 'auth/configuration-not-found') {
+        message = "Erro de configuração do Firebase. Contate o administrador.";
+      } else if (error.code === 'auth/invalid-credential') {
+        message = "Credenciais inválidas. Verifique seu email e senha.";
       }
       toast({
         title: "Erro ao fazer login",
@@ -99,9 +111,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
       return response.user;
     } catch (error: any) {
+      let message = "Erro ao fazer login com Google";
+      if (error.code === 'auth/configuration-not-found') {
+        message = "Erro de configuração do Firebase. Contate o administrador.";
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        message = "Processo de login cancelado pelo usuário.";
+      }
       toast({
         title: "Erro ao fazer login com Google",
-        description: error.message || "Tente novamente mais tarde",
+        description: message || "Tente novamente mais tarde",
         variant: "destructive",
       });
       throw error;
@@ -124,6 +142,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       let message = "Erro ao criar conta";
       if (error.code === 'auth/email-already-in-use') {
         message = "Este email já está em uso";
+      } else if (error.code === 'auth/configuration-not-found') {
+        message = "Erro de configuração do Firebase. Contate o administrador.";
+      } else if (error.code === 'auth/weak-password') {
+        message = "A senha é muito fraca. Use pelo menos 6 caracteres.";
       }
       toast({
         title: "Erro ao criar conta",

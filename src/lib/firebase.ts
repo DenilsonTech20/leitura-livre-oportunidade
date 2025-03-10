@@ -32,7 +32,8 @@ const firebaseConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
@@ -94,7 +95,7 @@ const checkAdminStatus = async (user) => {
 // Create admin user if it doesn't exist
 const createAdminUser = async (email, password) => {
   try {
-    // Check if user exists
+    // First check if the user already exists by email
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('email', '==', email));
     const querySnapshot = await getDocs(q);
@@ -102,10 +103,15 @@ const createAdminUser = async (email, password) => {
     if (!querySnapshot.empty) {
       // User exists, update role to ADMIN if needed
       const userDoc = querySnapshot.docs[0];
-      if (userDoc.data().role !== 'ADMIN') {
+      const userData = userDoc.data();
+      
+      if (userData.role !== 'ADMIN') {
         await updateDoc(doc(db, 'users', userDoc.id), {
           role: 'ADMIN'
         });
+        console.log('User updated to admin role');
+      } else {
+        console.log('User already has admin role');
       }
       return;
     }
@@ -123,6 +129,7 @@ const createAdminUser = async (email, password) => {
     console.log('Admin user created successfully');
   } catch (error) {
     console.error('Error creating admin user:', error);
+    throw error;
   }
 };
 
