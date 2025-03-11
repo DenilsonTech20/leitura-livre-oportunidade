@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,8 +48,6 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
   const [error, setError] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
-  // Use the toast import directly, not useToast()
-  // const { toast } = useToast();
   const coverInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -68,7 +65,6 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
 
   const handleCoverImageChange = (file: File | null) => {
     if (file) {
-      // Create a preview URL for the selected image
       const previewUrl = URL.createObjectURL(file);
       setCoverPreview(previewUrl);
       form.setValue('coverImage', file);
@@ -82,12 +78,9 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
     if (file) {
       form.setValue('bookFile', file);
       
-      // Show preview for some file types
       if (file.type === 'application/pdf') {
         const previewUrl = URL.createObjectURL(file);
         setFilePreview(previewUrl);
-        
-        // Auto-set file type
         form.setValue('fileType', FileType.PDF);
       } else if (file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc')) {
         form.setValue('fileType', FileType.DOCX);
@@ -113,13 +106,11 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
     setError(null);
     
     try {
-      // 1. Upload book file to Firebase Storage
       const bookFileName = `books/${Date.now()}_${data.bookFile.name}`;
       const bookFileRef = ref(storage, bookFileName);
       await uploadBytes(bookFileRef, data.bookFile);
       const bookFileUrl = await getDownloadURL(bookFileRef);
       
-      // 2. Upload cover image to Firebase Storage (if provided)
       let coverUrl = '';
       if (data.coverImage) {
         const coverFileName = `covers/${Date.now()}_${data.coverImage.name}`;
@@ -128,7 +119,6 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
         coverUrl = await getDownloadURL(coverFileRef);
       }
       
-      // 3. Add book to Firestore
       const newBook = {
         title: data.title,
         author: data.author,
@@ -144,7 +134,6 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
       
       const docRef = await addDoc(collection(db, 'books'), newBook);
       
-      // 4. Sync with PostgreSQL
       await syncAllBooks();
       
       toast({
@@ -152,7 +141,6 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
         description: `"${data.title}" has been added to the library.`,
       });
       
-      // Reset form
       form.reset();
       setCoverPreview(null);
       setFilePreview(null);
