@@ -49,7 +49,8 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
   const [error, setError] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
-  const { toast } = useToast();
+  // Use the toast import directly, not useToast()
+  // const { toast } = useToast();
   const coverInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   

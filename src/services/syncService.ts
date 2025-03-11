@@ -1,9 +1,12 @@
-
 import { db } from '@/lib/firebase';
 import prisma from '@/lib/prisma';
 import { collection, getDocs, doc, getDoc, query, limit, where, orderBy } from 'firebase/firestore';
 import { toast } from '@/components/ui/use-toast';
-import { Role, Plan, BookStatus, FileType, LoanStatus } from '@/types';
+import { BookStatus, FileType, LoanStatus } from '@/types';
+
+// Define Role and Plan types since they are not exported from @/types
+type Role = 'USER' | 'ADMIN';
+type Plan = 'FREE' | 'PREMIUM';
 
 // Sync all users from Firebase to PostgreSQL
 export const syncAllUsers = async () => {
