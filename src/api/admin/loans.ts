@@ -1,3 +1,4 @@
+
 import { PrismaClient } from '@prisma/client';
 import { 
   db,
@@ -12,8 +13,34 @@ import {
   serverTimestamp
 } from '@/lib/firebase';
 import { toast } from '@/components/ui/use-toast';
+import { LoanStatus } from '@/types';
 
 const prisma = new PrismaClient();
+
+// Add type definitions to avoid errors
+interface LoanWithRelations {
+  id: string;
+  userId: string;
+  bookId: string;
+  startTime: Date | any;
+  endTime?: Date | any | null;
+  status: LoanStatus;
+  createdAt?: Date | any;
+  updatedAt?: Date | any;
+  book?: {
+    id: string;
+    title?: string;
+    author?: string;
+    status?: string;
+    [key: string]: any;
+  };
+  user?: {
+    id: string;
+    name?: string;
+    email?: string;
+    [key: string]: any;
+  };
+}
 
 // Get all loans (admin view)
 export const getAllLoans = async () => {
@@ -44,13 +71,13 @@ export const getAllLoans = async () => {
     const loansSnapshot = await getDocs(loansRef);
     
     // Fetch user and book details for each loan
-    const loansWithDetails = await Promise.all(
+    const loansWithDetails: LoanWithRelations[] = await Promise.all(
       loansSnapshot.docs.map(async (loanDoc) => {
-        const loanData = loanDoc.data();
+        const loanData = loanDoc.data() as LoanWithRelations;
         
         // Get book data
         const bookDoc = await getDoc(doc(db, 'books', loanData.bookId));
-        const bookData = bookDoc.exists() ? { id: bookDoc.id, ...bookDoc.data() } : null;
+        const bookData = bookDoc.exists() ? { id: bookDoc.id, ...bookDoc.data() } : { id: loanData.bookId };
         
         // Get user data
         const userDoc = await getDoc(doc(db, 'users', loanData.userId));
@@ -58,13 +85,14 @@ export const getAllLoans = async () => {
           id: userDoc.id, 
           name: userDoc.data().displayName, 
           email: userDoc.data().email 
-        } : null;
+        } : { id: loanData.userId };
         
         return {
           id: loanDoc.id,
           ...loanData,
           book: bookData,
-          user: userData
+          user: userData,
+          updatedAt: loanData.updatedAt || loanData.createdAt // Ensure updatedAt exists
         };
       })
     );
@@ -118,13 +146,13 @@ export const getActiveLoans = async () => {
     const loansSnapshot = await getDocs(loansQuery);
     
     // Fetch user and book details for each loan
-    const loansWithDetails = await Promise.all(
+    const loansWithDetails: LoanWithRelations[] = await Promise.all(
       loansSnapshot.docs.map(async (loanDoc) => {
-        const loanData = loanDoc.data();
+        const loanData = loanDoc.data() as LoanWithRelations;
         
         // Get book data
         const bookDoc = await getDoc(doc(db, 'books', loanData.bookId));
-        const bookData = bookDoc.exists() ? { id: bookDoc.id, ...bookDoc.data() } : null;
+        const bookData = bookDoc.exists() ? { id: bookDoc.id, ...bookDoc.data() } : { id: loanData.bookId };
         
         // Get user data
         const userDoc = await getDoc(doc(db, 'users', loanData.userId));
@@ -132,13 +160,14 @@ export const getActiveLoans = async () => {
           id: userDoc.id, 
           name: userDoc.data().displayName, 
           email: userDoc.data().email 
-        } : null;
+        } : { id: loanData.userId };
         
         return {
           id: loanDoc.id,
           ...loanData,
           book: bookData,
-          user: userData
+          user: userData,
+          updatedAt: loanData.updatedAt || loanData.createdAt // Ensure updatedAt exists
         };
       })
     );
@@ -170,7 +199,7 @@ export const adminForceReturnBook = async (loanId: string) => {
       throw new Error('Loan not found');
     }
     
-    const loanData = loanDoc.data();
+    const loanData = loanDoc.data() as LoanWithRelations;
     
     if (loanData.status !== 'ACTIVE') {
       toast({
@@ -240,7 +269,7 @@ export const adminMarkLoanExpired = async (loanId: string) => {
       throw new Error('Loan not found');
     }
     
-    const loanData = loanDoc.data();
+    const loanData = loanDoc.data() as LoanWithRelations;
     
     if (loanData.status !== 'ACTIVE') {
       toast({

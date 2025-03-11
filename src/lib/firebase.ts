@@ -73,9 +73,9 @@ const createUserDocument = async (user, additionalData = {}) => {
       await syncUserWithDatabase({
         uid: user.uid,
         email,
-        name: displayName || additionalData.displayName,
-        role: additionalData.role || 'USER',
-        plan: additionalData.plan || 'FREE',
+        name: displayName || (additionalData as { displayName?: string }).displayName,
+        role: (additionalData as { role?: string }).role || 'USER',
+        plan: (additionalData as { plan?: string }).plan || 'FREE',
         remainingTime: 2700
       });
       
@@ -226,6 +226,18 @@ export {
   checkAdminStatus,
   createAdminUser,
   addBook,
-  getBooks
+  getBooks,
+  // Export Firestore functions that were missing
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  Timestamp,
+  serverTimestamp,
+  addDoc
 };
 export default app;
