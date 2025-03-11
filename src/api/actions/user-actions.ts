@@ -1,11 +1,11 @@
 
 import { PrismaClient } from '@prisma/client';
-import { auth, db, doc, getDoc, updateDoc } from '@/lib/firebase';
-import { toast } from '@/components/ui/use-toast';
+import { auth, db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const prisma = new PrismaClient();
 
-// Sync user between Firebase and Postgres
+// Function to sync user data between Firebase and PostgreSQL
 export const syncUserWithDatabase = async (userData: {
   uid: string;
   email: string;
@@ -15,6 +15,8 @@ export const syncUserWithDatabase = async (userData: {
   remainingTime?: number;
 }) => {
   try {
+    console.log('Syncing user with database:', userData);
+
     // Check if user already exists in Postgres
     const existingUser = await prisma.user.findUnique({
       where: { id: userData.uid },
@@ -22,7 +24,7 @@ export const syncUserWithDatabase = async (userData: {
 
     if (existingUser) {
       // Update existing user
-      return await prisma.user.update({
+      const updatedUser = await prisma.user.update({
         where: { id: userData.uid },
         data: {
           email: userData.email,
@@ -33,143 +35,108 @@ export const syncUserWithDatabase = async (userData: {
           updatedAt: new Date(),
         },
       });
+      console.log('User updated in Postgres:', updatedUser.id);
+      return updatedUser;
     } else {
       // Create new user
-      return await prisma.user.create({
+      const newUser = await prisma.user.create({
         data: {
           id: userData.uid,
           email: userData.email,
-          name: userData.name || '',
-          password: '', // Actual password is stored in Firebase
+          name: userData.name || 'User',
+          password: '', // Password is managed by Firebase Auth
           role: userData.role as any || 'USER',
           plan: userData.plan as any || 'FREE',
           remainingTime: userData.remainingTime || 2700,
         },
       });
+      console.log('User created in Postgres:', newUser.id);
+      return newUser;
     }
   } catch (error) {
-    console.error('Error syncing user with database:', error);
-    throw error;
+    console.error('Error syncing user with Postgres database:', error);
+    throw new Error('Failed to sync user with database');
   }
 };
 
-// Get current user data from Postgres
-export const getCurrentUserData = async (userId: string) => {
+// Function to update user's remaining time
+export const updateUserRemainingTime = async (
+  userId: string,
+  newRemainingTime: number
+) => {
   try {
-    const userData = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-    
-    return userData;
-  } catch (error) {
-    console.error('Error getting user data:', error);
-    throw error;
-  }
-};
-
-// Update user profile in both Firebase and Postgres
-export const updateUserProfile = async (userId: string, data: {
-  name?: string;
-  email?: string;
-  plan?: 'FREE' | 'PREMIUM';
-}) => {
-  try {
-    // Update in Postgres
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        name: data.name,
-        email: data.email,
-        plan: data.plan,
-        updatedAt: new Date(),
-      },
-    });
-    
-    // Update in Firebase if needed
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
-    
-    if (userDoc.exists()) {
-      await updateDoc(userRef, {
-        displayName: data.name,
-        email: data.email,
-        plan: data.plan,
-      });
-    }
-    
-    toast({
-      title: "Perfil atualizado",
-      description: "Suas informações foram atualizadas com sucesso",
-    });
-    
-    return updatedUser;
-  } catch (error) {
-    console.error('Error updating user profile:', error);
-    toast({
-      title: "Erro ao atualizar perfil",
-      description: "Tente novamente mais tarde",
-      variant: "destructive",
-    });
-    throw error;
-  }
-};
-
-// Update user's remaining time
-export const updateUserRemainingTime = async (userId: string, newTime: number) => {
-  try {
-    // Update in Postgres
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        remainingTime: newTime,
-        updatedAt: new Date(),
-      },
-    });
-    
     // Update in Firebase
     const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, {
-      remainingTime: newTime,
+    await updateDoc(userRef, { remainingTime: newRemainingTime });
+
+    // Update in Postgres
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { remainingTime: newRemainingTime },
     });
-    
+
     return updatedUser;
   } catch (error) {
     console.error('Error updating user remaining time:', error);
-    throw error;
+    throw new Error('Failed to update user remaining time');
   }
 };
 
-// Upgrade user plan
-export const upgradeUserPlan = async (userId: string, plan: 'FREE' | 'PREMIUM') => {
+// Function to get user data from Postgres
+export const getUserFromDatabase = async (userId: string) => {
   try {
-    // Update in Postgres
-    const updatedUser = await prisma.user.update({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
+    });
+    return user;
+  } catch (error) {
+    console.error('Error getting user from database:', error);
+    throw new Error('Failed to get user from database');
+  }
+};
+
+// Create or update admin user in Postgres
+export const createAdminUserInDatabase = async (
+  email: string,
+  name: string,
+  firebaseUid: string
+) => {
+  try {
+    // Check if admin already exists by email
+    const existingAdmin = await prisma.user.findFirst({
+      where: { email },
+    });
+
+    if (existingAdmin) {
+      // Update role to ADMIN if needed
+      if (existingAdmin.role !== 'ADMIN') {
+        const updatedUser = await prisma.user.update({
+          where: { id: existingAdmin.id },
+          data: { role: 'ADMIN', plan: 'PREMIUM' },
+        });
+        console.log('User updated to admin in Postgres:', updatedUser.id);
+        return updatedUser;
+      }
+      console.log('User already has admin role in Postgres');
+      return existingAdmin;
+    }
+
+    // Create new admin user in Postgres
+    const newAdmin = await prisma.user.create({
       data: {
-        plan,
-        updatedAt: new Date(),
+        id: firebaseUid,
+        email,
+        name,
+        password: '',
+        role: 'ADMIN',
+        plan: 'PREMIUM',
+        remainingTime: 0, // Admin doesn't need time limits
       },
     });
-    
-    // Update in Firebase
-    const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, {
-      plan,
-    });
-    
-    toast({
-      title: "Plano atualizado",
-      description: `Seu plano foi atualizado para ${plan}`,
-    });
-    
-    return updatedUser;
+    console.log('Admin created in Postgres:', newAdmin.id);
+    return newAdmin;
   } catch (error) {
-    console.error('Error upgrading user plan:', error);
-    toast({
-      title: "Erro ao atualizar plano",
-      description: "Tente novamente mais tarde",
-      variant: "destructive",
-    });
-    throw error;
+    console.error('Error creating admin user in database:', error);
+    throw new Error('Failed to create admin user in database');
   }
 };

@@ -1,66 +1,50 @@
+import { auth, db } from '@/lib/firebase';
+import { getDoc, doc } from 'firebase/firestore';
+import { PrismaClient } from '@prisma/client';
 
-import { auth, getDoc, doc, db } from '@/lib/firebase';
+const prisma = new PrismaClient();
 
-export const checkIfUserIsAdmin = async (userId?: string) => {
+export const checkAdminStatus = async (userId: string) => {
+  if (!userId) return false;
+  
   try {
-    if (!userId) {
-      // If userId is not provided, check the current authenticated user
-      const currentUser = auth.currentUser;
-      
-      if (!currentUser) {
-        return false;
-      }
-      
-      userId = currentUser.uid;
+    // First check in Firebase
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists() && userDoc.data().role === 'ADMIN') {
+      return true;
     }
     
-    // Check admin status in Firestore
-    const userDoc = await getDoc(doc(db, 'users', userId));
+    // Then check in Postgres as a fallback
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
     
-    if (!userDoc.exists()) {
-      return false;
-    }
-    
-    return userDoc.data().role === 'ADMIN';
+    return user?.role === 'ADMIN';
   } catch (error) {
     console.error('Error checking admin status:', error);
     return false;
   }
 };
 
-export const requireAdmin = async (req: Request) => {
-  // This is a server-side function to protect API routes
-  // Get the Firebase ID token from the Authorization header
-  const authHeader = req.headers.get('Authorization');
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new Error('Unauthorized: Missing or invalid token');
-  }
-  
-  const token = authHeader.split('Bearer ')[1];
-  
+export const isUserAdmin = async (req: Request) => {
   try {
-    // Verify the token with Firebase Admin SDK
-    // Note: This would normally use Firebase Admin SDK
-    // Since we don't have it set up here, we're using a simplified check
-    // that just verifies the user is admin in Firestore
-    
-    // For a real implementation, you would use:
-    // const decodedToken = await admin.auth().verifyIdToken(token);
-    // const userId = decodedToken.uid;
-    
-    // For now, we'll use the token as the userId (this is NOT secure)
-    const userId = token;
-    
-    const isAdmin = await checkIfUserIsAdmin(userId);
-    
-    if (!isAdmin) {
-      throw new Error('Forbidden: Admin access required');
+    // This is a simplified check
+    // In a real app, you'd get the user ID from a session or JWT token
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return false;
     }
     
-    return userId;
+    const token = authHeader.split(' ')[1];
+    // Validate token and get user ID
+    // For now, we'll use a placeholder
+    const userId = 'placeholder-user-id';
+    
+    return await checkAdminStatus(userId);
   } catch (error) {
-    console.error('Error requiring admin:', error);
-    throw new Error('Unauthorized: Invalid token');
+    console.error('Error verifying admin status:', error);
+    return false;
   }
 };
