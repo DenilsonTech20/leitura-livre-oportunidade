@@ -1,12 +1,11 @@
-import { auth, db } from '@/lib/firebase';
-import { getDoc, doc } from 'firebase/firestore';
+
 import { PrismaClient } from '@prisma/client';
+import { auth, db, doc, getDoc } from '@/lib/firebase';
 
 const prisma = new PrismaClient();
 
-export const checkAdminStatus = async (userId: string) => {
-  if (!userId) return false;
-  
+// Check if a user is an admin in both Firebase and Postgres
+export const checkAdmin = async (userId: string) => {
   try {
     // First check in Firebase
     const userRef = doc(db, 'users', userId);
@@ -16,35 +15,56 @@ export const checkAdminStatus = async (userId: string) => {
       return true;
     }
     
-    // Then check in Postgres as a fallback
+    // Then check in Postgres as fallback
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
     
-    return user?.role === 'ADMIN';
+    if (user && user.role === 'ADMIN') {
+      return true;
+    }
+    
+    return false;
   } catch (error) {
     console.error('Error checking admin status:', error);
     return false;
   }
 };
 
-export const isUserAdmin = async (req: Request) => {
+// Handler for API requests
+export const POST = async (req: Request) => {
   try {
-    // This is a simplified check
-    // In a real app, you'd get the user ID from a session or JWT token
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return false;
+    const { userId } = await req.json();
+    
+    if (!userId) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'User ID is required' 
+      }), { 
+        status: 400, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
     }
     
-    const token = authHeader.split(' ')[1];
-    // Validate token and get user ID
-    // For now, we'll use a placeholder
-    const userId = 'placeholder-user-id';
+    const isAdmin = await checkAdmin(userId);
     
-    return await checkAdminStatus(userId);
+    return new Response(JSON.stringify({ 
+      success: true, 
+      isAdmin 
+    }), { 
+      status: 200, 
+      headers: { 'Content-Type': 'application/json' } 
+    });
   } catch (error) {
-    console.error('Error verifying admin status:', error);
-    return false;
+    console.error('Error in check-admin POST handler:', error);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: 'Server error' 
+    }), { 
+      status: 500, 
+      headers: { 'Content-Type': 'application/json' } 
+    });
   }
 };
+
+export default { POST };

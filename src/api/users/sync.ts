@@ -1,122 +1,111 @@
 
 import { PrismaClient } from '@prisma/client';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 const prisma = new PrismaClient();
 
-export const syncUserWithDatabase = async (req: Request) => {
+// Type for the user data coming from Firebase
+interface UserSyncData {
+  uid: string;
+  email: string;
+  name?: string | null;
+  role: 'USER' | 'ADMIN';
+  plan: 'FREE' | 'PREMIUM';
+  remainingTime: number;
+}
+
+/**
+ * Syncs a user from Firebase to the Postgres database
+ */
+export const syncUser = async (userData: UserSyncData) => {
   try {
-    const userData = await req.json();
-    const { uid, email, name, role, plan, remainingTime } = userData;
-    
-    if (!uid || !email) {
-      return new Response(JSON.stringify({ error: 'Missing required user data' }), {
-        status: 400,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-    }
-    
-    // Check if user already exists
+    console.log('Syncing user to PostgreSQL:', userData);
+
+    // Check if user already exists in Postgres
     const existingUser = await prisma.user.findUnique({
-      where: { id: uid },
+      where: { id: userData.uid },
     });
-    
-    let result;
-    
+
     if (existingUser) {
-      // Update user
-      result = await prisma.user.update({
-        where: { id: uid },
+      // Update existing user
+      const updatedUser = await prisma.user.update({
+        where: { id: userData.uid },
         data: {
-          email,
-          name: name || existingUser.name,
-          role: (role as any) || existingUser.role,
-          plan: (plan as any) || existingUser.plan,
-          remainingTime: remainingTime || existingUser.remainingTime,
+          email: userData.email,
+          name: userData.name || null,
+          role: userData.role,
+          plan: userData.plan,
+          remainingTime: userData.remainingTime,
+          updatedAt: new Date(),
         },
       });
+      console.log('User updated in PostgreSQL:', updatedUser.id);
+      return { success: true, user: updatedUser };
     } else {
-      // Create user
-      result = await prisma.user.create({
+      // Create new user
+      // For a new user, we need to generate a password hash
+      // This is just a placeholder - in a real app, you'd use a proper password hash
+      const passwordHash = await generatePasswordHash();
+      
+      const newUser = await prisma.user.create({
         data: {
-          id: uid,
-          email,
-          name: name || 'User',
-          password: '', // Password managed by Firebase
-          role: (role as any) || 'USER',
-          plan: (plan as any) || 'FREE',
-          remainingTime: remainingTime || 2700,
+          id: userData.uid,
+          email: userData.email,
+          name: userData.name || null,
+          password: passwordHash, // Required by schema
+          role: userData.role,
+          plan: userData.plan,
+          remainingTime: userData.remainingTime,
         },
+      });
+      console.log('User created in PostgreSQL:', newUser.id);
+      return { success: true, user: newUser };
+    }
+  } catch (error) {
+    console.error('Error syncing user to PostgreSQL:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Simple function to generate a random password hash
+// In a real app, you would use a proper password hashing library
+const generatePasswordHash = async (): Promise<string> => {
+  return Array(64)
+    .fill(0)
+    .map(() => Math.random().toString(36).charAt(2))
+    .join('');
+};
+
+// Handler for API requests
+export const POST = async (req: Request) => {
+  try {
+    const userData = await req.json() as UserSyncData;
+    
+    if (!userData || !userData.uid || !userData.email) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Invalid user data' 
+      }), { 
+        status: 400, 
+        headers: { 'Content-Type': 'application/json' } 
       });
     }
     
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    const result = await syncUser(userData);
+    
+    return new Response(JSON.stringify(result), { 
+      status: result.success ? 200 : 500,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    console.error('Error syncing user with database:', error);
-    return new Response(JSON.stringify({ error: 'Failed to sync user with database' }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    console.error('Error in POST handler:', error);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: 'Server error' 
+    }), { 
+      status: 500, 
+      headers: { 'Content-Type': 'application/json' } 
     });
   }
 };
 
-// Full sync of all Firebase users to Postgres
-export const syncAllUsers = async () => {
-  try {
-    // Get all users from Firebase
-    const usersRef = collection(db, 'users');
-    const querySnapshot = await getDocs(usersRef);
-    
-    for (const userDoc of querySnapshot.docs) {
-      const firebaseUser = userDoc.data();
-      const uid = userDoc.id;
-      
-      // Check if this user exists in Postgres
-      const existingUser = await prisma.user.findUnique({
-        where: { id: uid },
-      });
-      
-      if (!existingUser) {
-        // Create in Postgres
-        await prisma.user.create({
-          data: {
-            id: uid,
-            email: firebaseUser.email,
-            name: firebaseUser.displayName || 'User',
-            password: '', // Password managed by Firebase
-            role: (firebaseUser.role as any) || 'USER',
-            plan: (firebaseUser.plan as any) || 'FREE',
-            remainingTime: firebaseUser.remainingTime || 2700,
-          },
-        });
-      } else {
-        // Update user data
-        await prisma.user.update({
-          where: { id: uid },
-          data: {
-            email: firebaseUser.email,
-            name: firebaseUser.displayName || existingUser.name,
-            role: (firebaseUser.role as any) || existingUser.role,
-            plan: (firebaseUser.plan as any) || existingUser.plan,
-            remainingTime: firebaseUser.remainingTime || existingUser.remainingTime,
-          },
-        });
-      }
-    }
-    
-    return { success: true, message: 'All users synchronized successfully' };
-  } catch (error) {
-    console.error('Error syncing all users:', error);
-    throw new Error('Failed to synchronize all users');
-  }
-};
+export default { POST };

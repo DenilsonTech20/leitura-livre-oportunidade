@@ -1,7 +1,19 @@
 
 import { PrismaClient } from '@prisma/client';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, Timestamp, serverTimestamp, addDoc } from 'firebase/firestore';
+import { 
+  doc, 
+  getDoc, 
+  updateDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  Timestamp, 
+  serverTimestamp, 
+  addDoc 
+} from 'firebase/firestore';
+import { Loan, LoanStatus, BookStatus } from '@/types';
 
 const prisma = new PrismaClient();
 
@@ -12,7 +24,7 @@ interface LoanData {
   bookId: string;
   startTime: Date;
   endTime?: Date | null;
-  status: 'ACTIVE' | 'RETURNED' | 'EXPIRED';
+  status: LoanStatus;
   book: {
     id: string;
     title?: string;
@@ -20,6 +32,18 @@ interface LoanData {
     cover?: string;
   };
   updatedAt: Date;
+  createdAt?: Date;
+}
+
+interface FirebaseLoan {
+  id: string;
+  userId: string;
+  bookId: string;
+  startTime: any; // Timestamp in Firebase
+  endTime: any | null; // Timestamp in Firebase
+  status: string;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 // Function to borrow a book
@@ -47,7 +71,7 @@ export const borrowBook = async (
       where: { id: bookId },
     });
 
-    if (!book || book.status !== 'AVAILABLE') {
+    if (!book || book.status !== BookStatus.AVAILABLE) {
       throw new Error('Book is not available for borrowing');
     }
 
@@ -75,7 +99,7 @@ export const borrowBook = async (
         bookId,
         startTime,
         endTime,
-        status: 'ACTIVE',
+        status: LoanStatus.ACTIVE,
       },
       include: {
         book: true,
@@ -85,7 +109,7 @@ export const borrowBook = async (
     // Update book status
     await prisma.book.update({
       where: { id: bookId },
-      data: { status: 'BORROWED' },
+      data: { status: BookStatus.BORROWED },
     });
 
     // Also create loan in Firebase
@@ -102,7 +126,7 @@ export const borrowBook = async (
 
     return {
       ...loan,
-      updatedAt: new Date() // Ensure updatedAt is always defined
+      updatedAt: loan.updatedAt || new Date() // Ensure updatedAt is always defined
     };
   } catch (error) {
     console.error('Error borrowing book:', error);
@@ -193,7 +217,7 @@ export const returnBook = async (loanId: string): Promise<LoanData> => {
       throw new Error('Loan not found');
     }
 
-    if (loan.status !== 'ACTIVE') {
+    if (loan.status !== LoanStatus.ACTIVE) {
       throw new Error('This book has already been returned');
     }
 
@@ -201,7 +225,7 @@ export const returnBook = async (loanId: string): Promise<LoanData> => {
     const updatedLoan = await prisma.loan.update({
       where: { id: loanId },
       data: {
-        status: 'RETURNED',
+        status: LoanStatus.RETURNED,
         endTime: new Date(),
       },
       include: {
@@ -212,7 +236,7 @@ export const returnBook = async (loanId: string): Promise<LoanData> => {
     // Update book status
     await prisma.book.update({
       where: { id: loan.bookId },
-      data: { status: 'AVAILABLE' },
+      data: { status: BookStatus.AVAILABLE },
     });
 
     // Also update in Firebase
@@ -228,8 +252,9 @@ export const returnBook = async (loanId: string): Promise<LoanData> => {
 
     if (!querySnapshot.empty) {
       const firebaseLoanDoc = querySnapshot.docs[0];
-      await updateDoc(doc(db, 'loans', firebaseLoanDoc.id), {
-        status: 'RETURNED',
+      const firebaseLoanId = firebaseLoanDoc.id;
+      await updateDoc(doc(db, 'loans', firebaseLoanId), {
+        status: LoanStatus.RETURNED,
         endTime: Timestamp.now(),
         updatedAt: serverTimestamp(),
       });
@@ -253,10 +278,13 @@ export const syncUserLoans = async (userId: string) => {
     const q = query(loansRef, where('userId', '==', userId));
     const querySnapshot = await getDocs(q);
 
-    const firebaseLoans = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const firebaseLoans = querySnapshot.docs.map(doc => {
+      const data = doc.data() as FirebaseLoan;
+      return {
+        id: doc.id,
+        ...data,
+      };
+    });
 
     // Get all loans from Postgres
     const postgresLoans = await prisma.loan.findMany({
@@ -274,12 +302,11 @@ export const syncUserLoans = async (userId: string) => {
         // Create in Postgres
         await prisma.loan.create({
           data: {
-            id: firebaseLoan.id,
             userId: firebaseLoan.userId,
             bookId: firebaseLoan.bookId,
             startTime: firebaseLoan.startTime.toDate(),
             endTime: firebaseLoan.endTime ? firebaseLoan.endTime.toDate() : null,
-            status: firebaseLoan.status,
+            status: firebaseLoan.status as LoanStatus,
           },
         });
       }

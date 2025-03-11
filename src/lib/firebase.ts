@@ -58,6 +58,14 @@ const createUserDocument = async (user, additionalData = {}) => {
     const createdAt = Timestamp.now();
 
     try {
+      // Ensure additionalData is properly typed for TypeScript
+      const typedAdditionalData = additionalData as {
+        displayName?: string;
+        role?: string;
+        plan?: string;
+        remainingTime?: number;
+      };
+
       await setDoc(userRef, {
         displayName,
         email,
@@ -66,17 +74,17 @@ const createUserDocument = async (user, additionalData = {}) => {
         role: 'USER',
         plan: 'FREE',
         remainingTime: 2700, // 45 minutes in seconds
-        ...additionalData
+        ...typedAdditionalData
       });
       
       // Also sync with Postgres database using server action
       await syncUserWithDatabase({
         uid: user.uid,
         email,
-        name: displayName || (additionalData as { displayName?: string })?.displayName,
-        role: (additionalData as { role?: string })?.role || 'USER',
-        plan: (additionalData as { plan?: string })?.plan || 'FREE',
-        remainingTime: 2700
+        name: displayName || typedAdditionalData.displayName,
+        role: typedAdditionalData.role || 'USER',
+        plan: typedAdditionalData.plan || 'FREE',
+        remainingTime: typedAdditionalData.remainingTime || 2700
       });
       
       // Send email verification if it's a new user
@@ -94,6 +102,7 @@ const createUserDocument = async (user, additionalData = {}) => {
 // Sync user with Postgres database
 const syncUserWithDatabase = async (userData) => {
   try {
+    console.log('Syncing user with database:', userData);
     const response = await fetch('/api/users/sync', {
       method: 'POST',
       headers: {
@@ -155,21 +164,54 @@ const createAdminUser = async (email, password) => {
       } else {
         console.log('User already has admin role');
       }
+      
+      // Also sync with Postgres
+      await syncUserWithDatabase({
+        uid: userDoc.id,
+        email: userData.email,
+        name: userData.displayName || 'Admin',
+        role: 'ADMIN',
+        plan: 'PREMIUM',
+        remainingTime: 0 // Unlimited
+      });
+      
       return;
     }
     
     // Create new admin user
     console.log('Creating new admin user');
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    
-    await createUserDocument(user, {
-      displayName: 'Admin',
-      role: 'ADMIN',
-      plan: 'PREMIUM'
-    });
-    
-    console.log('Admin user created successfully');
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      await createUserDocument(user, {
+        displayName: 'Admin',
+        role: 'ADMIN',
+        plan: 'PREMIUM'
+      });
+      
+      console.log('Admin user created successfully');
+    } catch (authError) {
+      console.error('Auth error creating admin:', authError);
+      
+      // If the user already exists in Auth but not in Firestore, create the document manually
+      try {
+        // Try to sign in with the credentials
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        
+        await createUserDocument(user, {
+          displayName: 'Admin',
+          role: 'ADMIN',
+          plan: 'PREMIUM'
+        });
+        
+        console.log('Admin user document created for existing auth user');
+      } catch (signInError) {
+        console.error('Could not sign in as admin:', signInError);
+        throw signInError;
+      }
+    }
   } catch (error) {
     console.error('Error creating admin user:', error);
     throw error;
@@ -238,6 +280,7 @@ export {
   getDocs,
   Timestamp,
   serverTimestamp,
-  addDoc
+  addDoc,
+  increment
 };
 export default app;
