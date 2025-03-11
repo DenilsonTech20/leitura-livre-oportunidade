@@ -25,8 +25,9 @@ import { FileType, BookStatus } from '@/types';
 import { storage, db } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { useToast } from '@/hooks/use-toast';
-import { Image } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
+import { Image, FileUp, X } from 'lucide-react';
+import { syncAllBooks } from '@/services/syncService';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -47,7 +48,9 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
   const { toast } = useToast();
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const form = useForm<FormValues>({
@@ -71,6 +74,36 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
     } else {
       setCoverPreview(null);
       form.setValue('coverImage', null);
+    }
+  };
+
+  const handleFileChange = (file: File | null) => {
+    if (file) {
+      form.setValue('bookFile', file);
+      
+      // Show preview for some file types
+      if (file.type === 'application/pdf') {
+        const previewUrl = URL.createObjectURL(file);
+        setFilePreview(previewUrl);
+        
+        // Auto-set file type
+        form.setValue('fileType', FileType.PDF);
+      } else if (file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc')) {
+        form.setValue('fileType', FileType.DOCX);
+        setFilePreview(null);
+      } else if (file.name.toLowerCase().endsWith('.ppt') || file.name.toLowerCase().endsWith('.pptx')) {
+        form.setValue('fileType', FileType.PPT);
+        setFilePreview(null);
+      } else if (file.name.toLowerCase().endsWith('.epub')) {
+        form.setValue('fileType', FileType.EPUB);
+        setFilePreview(null);
+      } else {
+        form.setValue('fileType', FileType.OTHER);
+        setFilePreview(null);
+      }
+    } else {
+      form.setValue('bookFile', undefined as unknown as File);
+      setFilePreview(null);
     }
   };
 
@@ -110,15 +143,29 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
       
       const docRef = await addDoc(collection(db, 'books'), newBook);
       
+      // 4. Sync with PostgreSQL
+      await syncAllBooks();
+      
       toast({
         title: 'Book added successfully',
         description: `"${data.title}" has been added to the library.`,
       });
       
+      // Reset form
+      form.reset();
+      setCoverPreview(null);
+      setFilePreview(null);
+      
       onSuccess();
     } catch (err: any) {
       console.error('Error adding book:', err);
       setError(err.message || 'Error adding book. Please try again.');
+      
+      toast({
+        title: 'Error adding book',
+        description: err.message || 'There was an error adding the book.',
+        variant: 'destructive'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -206,97 +253,138 @@ const AddBookForm = ({ onSuccess }: AddBookFormProps) => {
           )}
         />
         
-        <FormField
-          control={form.control}
-          name="coverImage"
-          render={({ field: { value, onChange, ...field } }) => (
-            <FormItem>
-              <FormLabel>Book Cover (optional)</FormLabel>
-              <div className="flex flex-col items-center">
-                {coverPreview ? (
-                  <div className="mb-2 relative">
-                    <img 
-                      src={coverPreview} 
-                      alt="Cover preview" 
-                      className="h-40 w-30 object-cover rounded border"
-                    />
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full"
-                      onClick={() => handleCoverImageChange(null)}
-                    >
-                      ✕
-                    </Button>
-                  </div>
-                ) : (
-                  <div 
-                    className="w-30 h-40 border-2 border-dashed rounded flex items-center justify-center mb-2 cursor-pointer"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <div className="text-center p-4">
-                      <Image className="h-8 w-8 mx-auto text-gray-400" />
-                      <p className="text-sm text-gray-500 mt-2">Click to add cover</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="coverImage"
+            render={({ field: { value, onChange, ...field } }) => (
+              <FormItem className="flex flex-col h-full">
+                <FormLabel>Book Cover (optional)</FormLabel>
+                <div className="flex flex-col items-center justify-center h-full">
+                  {coverPreview ? (
+                    <div className="mb-2 relative">
+                      <img 
+                        src={coverPreview} 
+                        alt="Cover preview" 
+                        className="h-60 max-w-full object-contain rounded border"
+                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full"
+                        onClick={() => handleCoverImageChange(null)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
                     </div>
-                  </div>
-                )}
-                <FormControl>
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    className={coverPreview ? "hidden" : ""}
-                    ref={fileInputRef}
-                    {...field}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      handleCoverImageChange(file);
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </div>
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="bookFile"
-          render={({ field: { value, onChange, ...field } }) => (
-            <FormItem>
-              <FormLabel>Book File</FormLabel>
-              <FormControl>
-                <Input
-                  type="file"
-                  accept=".pdf,.docx,.ppt,.pptx,.epub"
-                  {...field}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      onChange(file);
-                      
-                      // Auto-detect file type
-                      const fileName = file.name.toLowerCase();
-                      if (fileName.endsWith('.pdf')) {
-                        form.setValue('fileType', FileType.PDF);
-                      } else if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
-                        form.setValue('fileType', FileType.DOCX);
-                      } else if (fileName.endsWith('.ppt') || fileName.endsWith('.pptx')) {
-                        form.setValue('fileType', FileType.PPT);
-                      } else if (fileName.endsWith('.epub')) {
-                        form.setValue('fileType', FileType.EPUB);
-                      } else {
-                        form.setValue('fileType', FileType.OTHER);
-                      }
-                    }
-                  }}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                  ) : (
+                    <div 
+                      className="border-2 border-dashed rounded flex items-center justify-center p-6 cursor-pointer h-60 w-full"
+                      onClick={() => coverInputRef.current?.click()}
+                    >
+                      <div className="text-center">
+                        <Image className="h-10 w-10 mx-auto text-gray-400" />
+                        <p className="text-sm text-gray-500 mt-2">Click to add cover image</p>
+                        <p className="text-xs text-gray-400">Recommended: 400x600px</p>
+                      </div>
+                    </div>
+                  )}
+                  <FormControl>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      ref={coverInputRef}
+                      {...field}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        handleCoverImageChange(file);
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </div>
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="bookFile"
+            render={({ field: { value, onChange, ...field } }) => (
+              <FormItem className="flex flex-col h-full">
+                <FormLabel>Book File</FormLabel>
+                <div className="flex flex-col h-full">
+                  {filePreview ? (
+                    <div className="mb-2 relative flex-grow">
+                      <iframe 
+                        src={filePreview} 
+                        className="w-full h-60 border rounded"
+                        title="Book preview"
+                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full"
+                        onClick={() => handleFileChange(null)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : form.getValues('bookFile') ? (
+                    <div className="border rounded p-4 mb-2 relative flex-grow">
+                      <div className="text-center">
+                        <p className="font-medium">{form.getValues('bookFile')?.name}</p>
+                        <p className="text-sm text-gray-500">
+                          {(form.getValues('bookFile')?.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => handleFileChange(null)}
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      className="border-2 border-dashed rounded flex items-center justify-center p-6 cursor-pointer flex-grow"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <div className="text-center">
+                        <FileUp className="h-10 w-10 mx-auto text-gray-400" />
+                        <p className="text-sm text-gray-500 mt-2">Click to upload book file</p>
+                        <p className="text-xs text-gray-400">PDF, DOCX, PPT, EPUB</p>
+                      </div>
+                    </div>
+                  )}
+                  <FormControl>
+                    <Input
+                      type="file"
+                      accept=".pdf,.docx,.doc,.ppt,.pptx,.epub"
+                      className="hidden"
+                      ref={fileInputRef}
+                      {...field}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (file) {
+                          handleFileChange(file);
+                        }
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </div>
+              </FormItem>
+            )}
+          />
+        </div>
         
         <div className="flex justify-end pt-4">
           <Button type="submit" disabled={isSubmitting}>

@@ -1,119 +1,72 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/home/Footer";
 import { Search, Filter, ChevronDown, X } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
 import BookCardBorrow from "@/components/ui/BookCardBorrow";
-
-// Mock data for books
-const mockBooks = [
-  {
-    id: "1",
-    title: "O Alquimista",
-    author: "Paulo Coelho",
-    cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    rating: 4.5,
-    format: "both" as const,
-  },
-  {
-    id: "2",
-    title: "A Revolução dos Bichos",
-    author: "George Orwell",
-    cover: "https://images.unsplash.com/photo-1531928351158-2f736078e0a1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    rating: 4.8,
-    format: "ebook" as const,
-  },
-  {
-    id: "3",
-    title: "Dom Casmurro",
-    author: "Machado de Assis",
-    cover: "https://images.unsplash.com/photo-1541963463532-d68292c34b19?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    rating: 4.9,
-    format: "both" as const,
-  },
-  {
-    id: "4",
-    title: "Ensaio Sobre a Cegueira",
-    author: "José Saramago",
-    cover: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    rating: 4.6,
-    format: "audio" as const,
-  },
-  {
-    id: "5",
-    title: "Memórias Póstumas de Brás Cubas",
-    author: "Machado de Assis",
-    cover: "https://images.unsplash.com/photo-1532012197267-da84d127e765?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    rating: 4.7,
-    format: "ebook" as const,
-  },
-  {
-    id: "6",
-    title: "Quincas Borba",
-    author: "Machado de Assis",
-    cover: "https://images.unsplash.com/photo-1512820790803-83ca734da794?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    rating: 4.4,
-    format: "both" as const,
-  },
-  {
-    id: "7",
-    title: "A Hora da Estrela",
-    author: "Clarice Lispector",
-    cover: "https://images.unsplash.com/photo-1512045482940-f37f5216f639?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    rating: 4.3,
-    format: "audio" as const,
-  },
-  {
-    id: "8",
-    title: "O Cortiço",
-    author: "Aluísio Azevedo",
-    cover: "https://images.unsplash.com/photo-1526243741027-444d633d7365?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    rating: 4.2,
-    format: "ebook" as const,
-  },
-  {
-    id: "9",
-    title: "Grande Sertão: Veredas",
-    author: "João Guimarães Rosa",
-    cover: "https://images.unsplash.com/photo-1476275466078-4007374efbbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    rating: 4.8,
-    format: "both" as const,
-  },
-  {
-    id: "10",
-    title: "Capitães da Areia",
-    author: "Jorge Amado",
-    cover: "https://images.unsplash.com/photo-1495640452828-3df6795cf69b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    rating: 4.6,
-    format: "audio" as const,
-  },
-  {
-    id: "11",
-    title: "Iracema",
-    author: "José de Alencar",
-    cover: "https://images.unsplash.com/photo-1516979187457-637abb4f9353?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    rating: 4.1,
-    format: "ebook" as const,
-  },
-  {
-    id: "12",
-    title: "O Guarani",
-    author: "José de Alencar",
-    cover: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    rating: 4.0,
-    format: "both" as const,
-  },
-];
+import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { BookStatus, FileType } from "@/types";
+import { toast } from "@/components/ui/use-toast";
 
 const generos = ["Romance", "Clássico", "Fantasia", "Biografia", "História", "Suspense", "Ficção Científica"];
 const formatos = ["E-book", "Audiolivro", "Ambos"];
 
+const getFormatType = (fileType: FileType) => {
+  if (fileType === FileType.PDF || fileType === FileType.EPUB || fileType === FileType.DOCX) {
+    return "ebook";
+  } else if (fileType === FileType.OTHER) {
+    return "audio";
+  } else {
+    return "both";
+  }
+};
+
 const Biblioteca = () => {
+  const [books, setBooks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGeneros, setSelectedGeneros] = useState<string[]>([]);
   const [selectedFormatos, setSelectedFormatos] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  
+  useEffect(() => {
+    fetchBooks();
+  }, []);
+  
+  const fetchBooks = async () => {
+    try {
+      setLoading(true);
+      const booksRef = collection(db, 'books');
+      const q = query(
+        booksRef, 
+        where("status", "==", BookStatus.AVAILABLE),
+        orderBy("createdAt", "desc")
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const fetchedBooks = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        // Map the file type to format for display
+        format: getFormatType(doc.data().fileType),
+        // Add rating (this would normally come from reviews, but we'll use a placeholder)
+        rating: (Math.random() * (5 - 3.5) + 3.5).toFixed(1)
+      }));
+      
+      setBooks(fetchedBooks);
+    } catch (error) {
+      console.error("Error fetching books:", error);
+      toast({
+        title: "Erro ao carregar livros",
+        description: "Não foi possível carregar os livros. Tente novamente mais tarde.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const toggleGenero = (genero: string) => {
     if (selectedGeneros.includes(genero)) {
@@ -136,6 +89,26 @@ const Biblioteca = () => {
     setSelectedFormatos([]);
     setSearchQuery("");
   };
+  
+  // Filter books based on search and selected filters
+  const filteredBooks = books.filter(book => {
+    // Search filter
+    const matchesSearch = searchQuery === "" || 
+      book.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      book.author?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Format filter
+    const matchesFormat = selectedFormatos.length === 0 || 
+      (selectedFormatos.includes("E-book") && book.format === "ebook") ||
+      (selectedFormatos.includes("Audiolivro") && book.format === "audio") ||
+      (selectedFormatos.includes("Ambos") && book.format === "both");
+    
+    // Genre filter - this would require books to have genres
+    // For now just include all books if no genres are selected
+    const matchesGenre = selectedGeneros.length === 0;
+    
+    return matchesSearch && matchesFormat && matchesGenre;
+  });
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -350,27 +323,54 @@ const Biblioteca = () => {
             </div>
           )}
           
-          {/* Books grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
-            {mockBooks.map((book) => (
-              <BookCardBorrow
-                key={book.id}
-                id={book.id}
-                title={book.title}
-                author={book.author}
-                cover={book.cover}
-                rating={book.rating}
-                format={book.format}
-              />
-            ))}
-          </div>
+          {/* Loading state */}
+          {loading && (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+          )}
           
-          {/* Load more button */}
-          <div className="flex justify-center mt-12">
-            <CustomButton variant="outline" size="lg">
-              Carregar mais livros
-            </CustomButton>
-          </div>
+          {/* Empty state */}
+          {!loading && filteredBooks.length === 0 && (
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium">Nenhum livro encontrado</h3>
+              <p className="text-muted-foreground mt-2">Tente ajustar seus filtros ou limpar a busca</p>
+              {(selectedGeneros.length > 0 || selectedFormatos.length > 0 || searchQuery) && (
+                <CustomButton variant="outline" onClick={clearFilters} className="mt-4">
+                  Limpar todos os filtros
+                </CustomButton>
+              )}
+            </div>
+          )}
+          
+          {/* Books grid */}
+          {!loading && filteredBooks.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+              {filteredBooks.map((book) => (
+                <BookCardBorrow
+                  key={book.id}
+                  id={book.id}
+                  title={book.title}
+                  author={book.author}
+                  cover={book.cover || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"}
+                  rating={parseFloat(book.rating)}
+                  format={book.format}
+                />
+              ))}
+            </div>
+          )}
+          
+          {/* Load more button - we'll use this in the future with pagination */}
+          {!loading && filteredBooks.length >= 12 && (
+            <div className="flex justify-center mt-12">
+              <CustomButton variant="outline" size="lg" onClick={() => toast({
+                title: "Carregando mais livros",
+                description: "Esta funcionalidade será implementada em breve"
+              })}>
+                Carregar mais livros
+              </CustomButton>
+            </div>
+          )}
         </div>
       </main>
       

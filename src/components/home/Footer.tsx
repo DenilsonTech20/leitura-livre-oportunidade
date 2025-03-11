@@ -45,6 +45,11 @@ const Footer = () => {
               <Link to="/sobre" className="text-gray-600 hover:text-primary transition-colors">
                 Sobre
               </Link>
+              {isAdmin && (
+                <Link to="/admin/dashboard" className="text-gray-600 hover:text-primary transition-colors">
+                  Admin
+                </Link>
+              )}
             </nav>
           </div>
         </div>
