@@ -8,7 +8,8 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   onAuthStateChanged,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendEmailVerification
 } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { 
@@ -22,7 +23,9 @@ import {
   where,
   getDocs,
   Timestamp,
-  increment
+  increment,
+  serverTimestamp,
+  addDoc
 } from 'firebase/firestore';
 
 // Firebase configuration
@@ -65,12 +68,49 @@ const createUserDocument = async (user, additionalData = {}) => {
         remainingTime: 2700, // 45 minutes in seconds
         ...additionalData
       });
+      
+      // Also sync with Postgres database using server action
+      await syncUserWithDatabase({
+        uid: user.uid,
+        email,
+        name: displayName || additionalData.displayName,
+        role: additionalData.role || 'USER',
+        plan: additionalData.plan || 'FREE',
+        remainingTime: 2700
+      });
+      
+      // Send email verification if it's a new user
+      if (auth.currentUser && !auth.currentUser.emailVerified) {
+        await sendEmailVerification(auth.currentUser);
+      }
     } catch (error) {
       console.error('Error creating user document', error);
     }
   }
 
   return userRef;
+};
+
+// Sync user with Postgres database
+const syncUserWithDatabase = async (userData) => {
+  try {
+    const response = await fetch('/api/users/sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to sync user with database');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error syncing user with database:', error);
+    // Continue even if sync fails - we'll retry later
+  }
 };
 
 // Check if user is admin
@@ -95,6 +135,8 @@ const checkAdminStatus = async (user) => {
 // Create admin user if it doesn't exist
 const createAdminUser = async (email, password) => {
   try {
+    console.log('Attempting to create admin user:', email);
+    
     // First check if the user already exists by email
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('email', '==', email));
@@ -117,6 +159,7 @@ const createAdminUser = async (email, password) => {
     }
     
     // Create new admin user
+    console.log('Creating new admin user');
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
@@ -133,6 +176,39 @@ const createAdminUser = async (email, password) => {
   }
 };
 
+// Book related functions
+const addBook = async (bookData) => {
+  try {
+    const booksRef = collection(db, 'books');
+    const bookDoc = await addDoc(booksRef, {
+      ...bookData,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      status: 'AVAILABLE'
+    });
+    
+    return bookDoc.id;
+  } catch (error) {
+    console.error('Error adding book:', error);
+    throw error;
+  }
+};
+
+const getBooks = async () => {
+  try {
+    const booksRef = collection(db, 'books');
+    const querySnapshot = await getDocs(booksRef);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('Error getting books:', error);
+    throw error;
+  }
+};
+
 export { 
   app, 
   auth, 
@@ -145,8 +221,11 @@ export {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  sendEmailVerification,
   createUserDocument,
   checkAdminStatus,
-  createAdminUser
+  createAdminUser,
+  addBook,
+  getBooks
 };
 export default app;

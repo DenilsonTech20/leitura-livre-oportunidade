@@ -26,12 +26,37 @@ import AdminLoans from "./pages/admin/AdminLoans";
 import PrivateRoute from "./components/auth/PrivateRoute";
 import AdminRoute from "./components/auth/AdminRoute";
 import { useEffect } from "react";
-import { createAdminUser } from "./lib/firebase";
+import { createAdminUser, auth, googleProvider } from "./lib/firebase";
 import { toast } from "./components/ui/use-toast";
 
 const queryClient = new QueryClient();
 
 const App = () => {
+  // Add current domain to allowed OAuth domains
+  useEffect(() => {
+    try {
+      const currentDomain = window.location.hostname;
+      console.log("Current domain:", currentDomain);
+      
+      // If using a platform preview domain, show a warning
+      if (currentDomain.includes('lovable.app')) {
+        console.info(
+          "Info: The current domain is not for OAuth operations. " +
+          "This will prevent signInWithPopup, signInWithRedirect, linkWithPopup and linkWithRedirect from working. " +
+          `Add your domain (${currentDomain}) to the OAuth redirect domains list in the Firebase console -> ` +
+          "Authentication -> Settings -> Authorized domains tab."
+        );
+      }
+      
+      // Configure Google provider with custom parameters
+      googleProvider.setCustomParameters({
+        prompt: 'select_account'
+      });
+    } catch (error) {
+      console.error("Error setting up OAuth domains:", error);
+    }
+  }, []);
+
   // Create admin user on app initialization
   useEffect(() => {
     const initializeAdmin = async () => {

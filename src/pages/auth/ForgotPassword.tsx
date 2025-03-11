@@ -4,33 +4,36 @@ import { Link } from "react-router-dom";
 import { Mail, ArrowLeft } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
 import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const { sendPasswordResetEmail } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!email) {
+      toast({
+        title: "Erro ao enviar e-mail",
+        description: "Por favor, insira seu endereço de e-mail.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
-    // Simulate api call delay
-    setTimeout(() => {
-      if (email) {
-        setEmailSent(true);
-        toast({
-          title: "E-mail enviado!",
-          description: "Verifique sua caixa de entrada para redefinir sua senha.",
-        });
-      } else {
-        toast({
-          title: "Erro ao enviar e-mail",
-          description: "Por favor, verifique seu e-mail e tente novamente.",
-          variant: "destructive",
-        });
-      }
+    try {
+      await sendPasswordResetEmail(email);
+      setEmailSent(true);
+    } catch (error) {
+      console.error("Password reset error:", error);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
