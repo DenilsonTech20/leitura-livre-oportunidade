@@ -23,6 +23,7 @@ import Subscription from "./pages/account/Subscription";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminBooks from "./pages/admin/AdminBooks";
 import AdminLoans from "./pages/admin/AdminLoans";
+import AdminUsers from "./pages/admin/AdminUsers";
 import PrivateRoute from "./components/auth/PrivateRoute";
 import AdminRoute from "./components/auth/AdminRoute";
 import { useEffect } from "react";
@@ -109,6 +110,7 @@ const App = () => {
                 <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                 <Route path="/admin/books" element={<AdminRoute><AdminBooks /></AdminRoute>} />
                 <Route path="/admin/loans" element={<AdminRoute><AdminLoans /></AdminRoute>} />
+                <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
                 
                 {/* Catch-all Route */}
                 <Route path="*" element={<NotFound />} />

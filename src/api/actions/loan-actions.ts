@@ -1,23 +1,9 @@
 
-import { PrismaClient } from '@prisma/client';
 import { db } from '@/lib/firebase';
-import { 
-  doc, 
-  getDoc, 
-  updateDoc, 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  Timestamp, 
-  serverTimestamp, 
-  addDoc 
-} from 'firebase/firestore';
-import { Loan, LoanStatus, BookStatus } from '@/types';
+import { collection, query, where, getDocs, doc, updateDoc, addDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { LoanStatus, FileType, BookStatus } from '@/types';
 
-const prisma = new PrismaClient();
-
-// Define interface for loan data
+// Interface for loan data
 interface LoanData {
   id: string;
   userId: string;
@@ -25,317 +11,177 @@ interface LoanData {
   startTime: Date;
   endTime?: Date | null;
   status: LoanStatus;
-  book: {
-    id: string;
-    title?: string;
-    author?: string;
-    cover?: string;
-  };
+  createdAt: Date;
   updatedAt: Date;
-  createdAt?: Date;
+  book?: {
+    id: string;
+    title: string;
+    author: string;
+    cover: string;
+    fileType: FileType;
+  };
 }
 
-interface FirebaseLoan {
-  id: string;
-  userId: string;
-  bookId: string;
-  startTime: any; // Timestamp in Firebase
-  endTime: any | null; // Timestamp in Firebase
-  status: string;
-  createdAt?: any;
-  updatedAt?: any;
-}
-
-// Function to borrow a book
-export const borrowBook = async (
-  userId: string,
-  bookId: string,
-  durationInSeconds: number = 2700 // Default: 45 minutes
-) => {
+// Get user's active loans
+export const getUserActiveLoans = async (userId: string) => {
   try {
-    // Check if user has this book already borrowed
-    const existingLoan = await prisma.loan.findFirst({
-      where: {
-        userId,
-        bookId,
-        status: 'ACTIVE',
-      },
-    });
-
-    if (existingLoan) {
-      throw new Error('You already have this book borrowed');
+    const loansRef = collection(db, 'loans');
+    const q = query(
+      loansRef,
+      where('userId', '==', userId),
+      where('status', '==', LoanStatus.ACTIVE)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const loans: LoanData[] = [];
+    
+    for (const loanDoc of querySnapshot.docs) {
+      const loanData = loanDoc.data() as Omit<LoanData, 'id'>;
+      
+      // Get book data
+      const bookRef = doc(db, 'books', loanData.bookId);
+      const bookDoc = await getDoc(bookRef);
+      
+      if (bookDoc.exists()) {
+        const bookData = bookDoc.data();
+        
+        loans.push({
+          id: loanDoc.id,
+          userId: loanData.userId,
+          bookId: loanData.bookId,
+          startTime: loanData.startTime,
+          endTime: loanData.endTime,
+          status: loanData.status,
+          createdAt: loanData.createdAt,
+          updatedAt: loanData.updatedAt,
+          book: {
+            id: bookData.id,
+            title: bookData.title,
+            author: bookData.author,
+            cover: bookData.cover,
+            fileType: bookData.fileType
+          }
+        });
+      }
     }
+    
+    return loans;
+  } catch (error) {
+    console.error('Error getting user loans:', error);
+    throw error;
+  }
+};
 
+// Create a new loan
+export const createLoan = async (userId: string, bookId: string, durationDays = 14) => {
+  try {
     // Check if book is available
-    const book = await prisma.book.findUnique({
-      where: { id: bookId },
-    });
-
-    if (!book || book.status !== BookStatus.AVAILABLE) {
-      throw new Error('Book is not available for borrowing');
+    const bookRef = doc(db, 'books', bookId);
+    const bookDoc = await getDoc(bookRef);
+    
+    if (!bookDoc.exists()) {
+      throw new Error('Book not found');
     }
-
-    // Check user's remaining time
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new Error('User not found');
+    
+    const bookData = bookDoc.data();
+    if (bookData.status !== BookStatus.AVAILABLE) {
+      throw new Error('Book is not available for loan');
     }
-
-    if (user.remainingTime <= 0 && user.plan === 'FREE') {
-      throw new Error('You have no remaining time. Please upgrade your plan.');
+    
+    // Check if user already has an active loan for this book
+    const loansRef = collection(db, 'loans');
+    const q = query(
+      loansRef,
+      where('userId', '==', userId),
+      where('bookId', '==', bookId),
+      where('status', '==', LoanStatus.ACTIVE)
+    );
+    
+    const existingLoanSnapshot = await getDocs(q);
+    if (!existingLoanSnapshot.empty) {
+      throw new Error('You already have an active loan for this book');
     }
-
+    
     // Calculate end time
     const startTime = new Date();
-    const endTime = new Date(startTime.getTime() + durationInSeconds * 1000);
-
-    // Create loan in Postgres
-    const loan = await prisma.loan.create({
-      data: {
-        userId,
-        bookId,
-        startTime,
-        endTime,
-        status: LoanStatus.ACTIVE,
-      },
-      include: {
-        book: true,
-      },
-    });
-
-    // Update book status
-    await prisma.book.update({
-      where: { id: bookId },
-      data: { status: BookStatus.BORROWED },
-    });
-
-    // Also create loan in Firebase
-    const loansRef = collection(db, 'loans');
-    await addDoc(loansRef, {
+    const endTime = new Date();
+    endTime.setDate(endTime.getDate() + durationDays);
+    
+    // Create new loan
+    const newLoan = {
       userId,
       bookId,
-      startTime: Timestamp.fromDate(startTime),
-      endTime: Timestamp.fromDate(endTime),
-      status: 'ACTIVE',
+      startTime: serverTimestamp(),
+      endTime: serverTimestamp(), // Will be updated with correct end time
+      status: LoanStatus.ACTIVE,
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    const loanDoc = await addDoc(collection(db, 'loans'), newLoan);
+    
+    // Update end time with correct date
+    await updateDoc(doc(db, 'loans', loanDoc.id), {
+      endTime: endTime
     });
-
+    
+    // Update book status
+    await updateDoc(bookRef, {
+      status: BookStatus.BORROWED,
+      updatedAt: serverTimestamp()
+    });
+    
     return {
-      ...loan,
-      updatedAt: loan.updatedAt || new Date() // Ensure updatedAt is always defined
+      id: loanDoc.id,
+      userId,
+      bookId,
+      startTime,
+      endTime,
+      status: LoanStatus.ACTIVE,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
   } catch (error) {
-    console.error('Error borrowing book:', error);
-    throw error;
-  }
-};
-
-// Get all active loans for a user
-export const getUserActiveLoans = async (userId: string): Promise<LoanData[]> => {
-  try {
-    const loans = await prisma.loan.findMany({
-      where: {
-        userId,
-        status: 'ACTIVE',
-      },
-      include: {
-        book: true,
-      },
-      orderBy: {
-        startTime: 'desc',
-      },
-    });
-
-    // Ensure all loans have updatedAt property
-    return loans.map(loan => ({
-      ...loan,
-      updatedAt: loan.updatedAt || new Date(),
-      book: {
-        id: loan.book.id,
-        title: loan.book.title,
-        author: loan.book.author,
-        cover: loan.book.cover || '',
-      }
-    }));
-  } catch (error) {
-    console.error('Error getting user active loans:', error);
-    throw error;
-  }
-};
-
-// Get loan history for a user
-export const getUserLoanHistory = async (userId: string): Promise<LoanData[]> => {
-  try {
-    const loans = await prisma.loan.findMany({
-      where: {
-        userId,
-        status: {
-          in: ['RETURNED', 'EXPIRED'],
-        },
-      },
-      include: {
-        book: true,
-      },
-      orderBy: {
-        endTime: 'desc',
-      },
-    });
-
-    // Ensure all loans have updatedAt property
-    return loans.map(loan => ({
-      ...loan,
-      updatedAt: loan.updatedAt || new Date(),
-      book: {
-        id: loan.book.id,
-        title: loan.book.title,
-        author: loan.book.author,
-        cover: loan.book.cover || '',
-      }
-    }));
-  } catch (error) {
-    console.error('Error getting user loan history:', error);
+    console.error('Error creating loan:', error);
     throw error;
   }
 };
 
 // Return a book
-export const returnBook = async (loanId: string): Promise<LoanData> => {
+export const returnBook = async (loanId: string) => {
   try {
-    // Get the loan
-    const loan = await prisma.loan.findUnique({
-      where: { id: loanId },
-      include: {
-        book: true,
-      },
-    });
-
-    if (!loan) {
+    const loanRef = doc(db, 'loans', loanId);
+    const loanDoc = await getDoc(loanRef);
+    
+    if (!loanDoc.exists()) {
       throw new Error('Loan not found');
     }
-
-    if (loan.status !== LoanStatus.ACTIVE) {
+    
+    const loanData = loanDoc.data() as LoanData;
+    
+    if (loanData.status !== LoanStatus.ACTIVE) {
       throw new Error('This book has already been returned');
     }
-
-    // Update loan status in Postgres
-    const updatedLoan = await prisma.loan.update({
-      where: { id: loanId },
-      data: {
-        status: LoanStatus.RETURNED,
-        endTime: new Date(),
-      },
-      include: {
-        book: true,
-      },
+    
+    // Update loan status
+    await updateDoc(loanRef, {
+      status: LoanStatus.RETURNED,
+      updatedAt: serverTimestamp()
     });
-
+    
     // Update book status
-    await prisma.book.update({
-      where: { id: loan.bookId },
-      data: { status: BookStatus.AVAILABLE },
+    const bookRef = doc(db, 'books', loanData.bookId);
+    await updateDoc(bookRef, {
+      status: BookStatus.AVAILABLE,
+      updatedAt: serverTimestamp()
     });
-
-    // Also update in Firebase
-    // Find the loan in Firebase first (we need to find by fields since IDs may be different)
-    const loansRef = collection(db, 'loans');
-    const q = query(
-      loansRef,
-      where('userId', '==', loan.userId),
-      where('bookId', '==', loan.bookId),
-      where('status', '==', 'ACTIVE')
-    );
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-      const firebaseLoanDoc = querySnapshot.docs[0];
-      const firebaseLoanId = firebaseLoanDoc.id;
-      await updateDoc(doc(db, 'loans', firebaseLoanId), {
-        status: LoanStatus.RETURNED,
-        endTime: Timestamp.now(),
-        updatedAt: serverTimestamp(),
-      });
-    }
-
+    
     return {
-      ...updatedLoan,
-      updatedAt: updatedLoan.updatedAt || new Date(),
+      id: loanDoc.id,
+      status: LoanStatus.RETURNED
     };
   } catch (error) {
     console.error('Error returning book:', error);
-    throw error;
-  }
-};
-
-// Create an API endpoint to sync user loans between Firebase and Postgres
-export const syncUserLoans = async (userId: string) => {
-  try {
-    // Get all loans from Firebase
-    const loansRef = collection(db, 'loans');
-    const q = query(loansRef, where('userId', '==', userId));
-    const querySnapshot = await getDocs(q);
-
-    const firebaseLoans = querySnapshot.docs.map(doc => {
-      const data = doc.data() as FirebaseLoan;
-      return {
-        id: doc.id,
-        ...data,
-      };
-    });
-
-    // Get all loans from Postgres
-    const postgresLoans = await prisma.loan.findMany({
-      where: { userId },
-    });
-
-    // Sync Firebase loans to Postgres
-    for (const firebaseLoan of firebaseLoans) {
-      const matchingLoan = postgresLoans.find(
-        pl => pl.bookId === firebaseLoan.bookId && 
-             pl.status === firebaseLoan.status
-      );
-
-      if (!matchingLoan) {
-        // Create in Postgres
-        await prisma.loan.create({
-          data: {
-            userId: firebaseLoan.userId,
-            bookId: firebaseLoan.bookId,
-            startTime: firebaseLoan.startTime.toDate(),
-            endTime: firebaseLoan.endTime ? firebaseLoan.endTime.toDate() : null,
-            status: firebaseLoan.status as LoanStatus,
-          },
-        });
-      }
-    }
-
-    // Sync Postgres loans to Firebase
-    for (const postgresLoan of postgresLoans) {
-      const matchingLoan = firebaseLoans.find(
-        fl => fl.bookId === postgresLoan.bookId && 
-             fl.status === postgresLoan.status
-      );
-
-      if (!matchingLoan) {
-        // Create in Firebase
-        await addDoc(loansRef, {
-          userId: postgresLoan.userId,
-          bookId: postgresLoan.bookId,
-          startTime: Timestamp.fromDate(postgresLoan.startTime),
-          endTime: postgresLoan.endTime ? Timestamp.fromDate(postgresLoan.endTime) : null,
-          status: postgresLoan.status,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-    }
-
-    return { success: true, message: 'Loans synchronized successfully' };
-  } catch (error) {
-    console.error('Error syncing user loans:', error);
     throw error;
   }
 };
