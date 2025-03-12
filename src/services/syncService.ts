@@ -1,3 +1,4 @@
+
 import { db } from '@/lib/firebase';
 import prisma from '@/lib/prisma';
 import { collection, getDocs, doc, getDoc, query, limit, where, orderBy } from 'firebase/firestore';
@@ -8,8 +9,30 @@ import { BookStatus, FileType, LoanStatus } from '@/types';
 type Role = 'USER' | 'ADMIN';
 type Plan = 'FREE' | 'PREMIUM';
 
+// Detect if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
+
 // Sync all users from Firebase to PostgreSQL
 export const syncAllUsers = async () => {
+  if (isBrowser) {
+    console.log("Sync operation not supported in browser environment");
+    // Instead of using prisma directly, we'll make an API call
+    try {
+      const response = await fetch('/api/sync/users', { method: 'POST' });
+      if (!response.ok) throw new Error('Failed to sync users');
+      return await response.json();
+    } catch (error) {
+      console.error("Error syncing users:", error);
+      toast({
+        title: "Sync Failed",
+        description: "Unable to sync users with database",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  }
+  
+  // Original server-side code
   try {
     console.log("Starting user sync process");
     const usersRef = collection(db, 'users');
@@ -63,6 +86,25 @@ export const syncAllUsers = async () => {
 
 // Sync all books from Firebase to PostgreSQL
 export const syncAllBooks = async () => {
+  if (isBrowser) {
+    console.log("Sync operation not supported in browser environment");
+    // Instead of using prisma directly, we'll make an API call
+    try {
+      const response = await fetch('/api/sync/books', { method: 'POST' });
+      if (!response.ok) throw new Error('Failed to sync books');
+      return await response.json();
+    } catch (error) {
+      console.error("Error syncing books:", error);
+      toast({
+        title: "Sync Failed",
+        description: "Unable to sync books with database",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  }
+  
+  // Original server-side code
   try {
     console.log("Starting book sync process");
     const booksRef = collection(db, 'books');
@@ -119,6 +161,25 @@ export const syncAllBooks = async () => {
 
 // Sync all loans from Firebase to PostgreSQL
 export const syncAllLoans = async () => {
+  if (isBrowser) {
+    console.log("Sync operation not supported in browser environment");
+    // Instead of using prisma directly, we'll make an API call
+    try {
+      const response = await fetch('/api/sync/loans', { method: 'POST' });
+      if (!response.ok) throw new Error('Failed to sync loans');
+      return await response.json();
+    } catch (error) {
+      console.error("Error syncing loans:", error);
+      toast({
+        title: "Sync Failed",
+        description: "Unable to sync loans with database",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  }
+  
+  // Original server-side code
   try {
     console.log("Starting loan sync process");
     const loansRef = collection(db, 'loans');
@@ -171,6 +232,31 @@ export const syncAllLoans = async () => {
 
 // Function to sync everything
 export const syncAllData = async () => {
+  if (isBrowser) {
+    console.log("Sync operation not supported in browser environment");
+    // Instead of using prisma directly, we'll make an API call
+    try {
+      const response = await fetch('/api/sync/all', { method: 'POST' });
+      if (!response.ok) throw new Error('Failed to sync all data');
+      
+      toast({
+        title: "Sincronização Iniciada",
+        description: "Dados sincronizados com sucesso"
+      });
+      
+      return await response.json();
+    } catch (error: any) {
+      console.error("Sync error:", error);
+      toast({
+        title: "Erro na sincronização",
+        description: error.message || "Ocorreu um erro durante a sincronização",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  }
+  
+  // Original server-side code
   try {
     toast({
       title: "Sincronização iniciada",
