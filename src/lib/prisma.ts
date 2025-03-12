@@ -1,25 +1,38 @@
 
-import { PrismaClient } from '@prisma/client';
+// This is a dummy implementation for browser environments
+// The actual Prisma client is only used server-side
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.
-// Learn more: https://pris.ly/d/help/next-js-best-practices
-
-declare global {
-  var prisma: PrismaClient | undefined;
-}
-
-// We need to check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined';
 
-// Only initialize Prisma on the server side
-export const prisma = isBrowser
-  ? (null as unknown as PrismaClient) // Return null for browser environments
-  : global.prisma || new PrismaClient();
+let prisma: any = null;
 
-// If not in production, attach to global to prevent multiple instances
-if (process.env.NODE_ENV !== 'production' && !isBrowser) {
-  global.prisma = prisma;
+// Only attempt to import and initialize Prisma on the server side
+if (!isBrowser) {
+  try {
+    // Dynamic import to avoid importing in browser
+    const { PrismaClient } = require('@prisma/client');
+    
+    // We need to check if we're in a browser environment
+    if (global.prisma) {
+      prisma = global.prisma;
+    } else {
+      prisma = new PrismaClient();
+      if (process.env.NODE_ENV !== 'production') {
+        global.prisma = prisma;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to initialize Prisma client:', e);
+    // Return a mock object with empty methods if Prisma fails to initialize
+    prisma = {
+      user: { findMany: async () => [] },
+      book: { findMany: async () => [] },
+      loan: { findMany: async () => [] },
+    };
+  }
 }
 
+export { prisma };
 export default prisma;

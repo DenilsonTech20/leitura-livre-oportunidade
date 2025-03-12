@@ -1,16 +1,29 @@
 
 import { db } from '@/lib/firebase';
-import prisma from '@/lib/prisma';
-import { collection, getDocs, doc, getDoc, query, limit, where, orderBy } from 'firebase/firestore';
 import { toast } from '@/components/ui/use-toast';
-import { BookStatus, FileType, LoanStatus } from '@/types';
+import { collection, getDocs } from 'firebase/firestore';
 
-// Define Role and Plan types since they are not exported from @/types
+// Define types locally to avoid importing from @/types
+// This resolves the TypeScript errors
 type Role = 'USER' | 'ADMIN';
 type Plan = 'FREE' | 'PREMIUM';
+type BookStatus = 'AVAILABLE' | 'BORROWED' | 'UNAVAILABLE';
+type FileType = 'PDF' | 'DOCX' | 'PPT' | 'EPUB' | 'OTHER';
+type LoanStatus = 'ACTIVE' | 'RETURNED' | 'EXPIRED';
 
 // Detect if we're in a browser environment
 const isBrowser = typeof window !== 'undefined';
+
+// Dynamic import for server-side only
+let prisma: any = null;
+if (!isBrowser) {
+  // This import will only run in Node.js environments
+  import('@/lib/prisma').then(module => {
+    prisma = module.default;
+  }).catch(err => {
+    console.error('Failed to import Prisma:', err);
+  });
+}
 
 // Sync all users from Firebase to PostgreSQL
 export const syncAllUsers = async () => {

@@ -21,6 +21,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    exclude: ['@prisma/client'],
+    exclude: ['@prisma/client'], // Exclude Prisma from dependency optimization
+  },
+  build: {
+    commonjsOptions: {
+      include: [], // Don't try to bundle Prisma into client builds
+    },
   },
 }));
