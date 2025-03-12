@@ -21,11 +21,14 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    exclude: ['@prisma/client'], // Exclude Prisma from dependency optimization
+    exclude: ['@prisma/client'], // Exclude Prisma completely from dependency optimization
   },
   build: {
     commonjsOptions: {
       include: [], // Don't try to bundle Prisma into client builds
     },
+    rollupOptions: {
+      external: ['@prisma/client', '.prisma/client', '.prisma/client/index-browser'], // Explicitly mark Prisma as external
+    }
   },
 }));

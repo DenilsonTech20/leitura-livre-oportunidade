@@ -1,4 +1,3 @@
-
 // This is a dummy implementation for browser environments
 // The actual Prisma client is only used server-side
 
@@ -6,15 +5,36 @@
 // exhausting your database connection limit.
 const isBrowser = typeof window !== 'undefined';
 
-let prisma: any = null;
+// Create a mock Prisma client for browser environments
+const mockPrismaClient = {
+  user: { 
+    findMany: async () => [],
+    upsert: async () => ({}),
+    create: async () => ({}),
+    update: async () => ({})
+  },
+  book: { 
+    findMany: async () => [],
+    upsert: async () => ({}),
+    create: async () => ({}),
+    update: async () => ({})
+  },
+  loan: { 
+    findMany: async () => [],
+    upsert: async () => ({}),
+    create: async () => ({}),
+    update: async () => ({})
+  },
+};
+
+let prisma: any = mockPrismaClient; // Default to mock for browser
 
 // Only attempt to import and initialize Prisma on the server side
 if (!isBrowser) {
   try {
-    // Dynamic import to avoid importing in browser
+    // Use require to avoid the import being processed by Vite
     const { PrismaClient } = require('@prisma/client');
     
-    // We need to check if we're in a browser environment
     if (global.prisma) {
       prisma = global.prisma;
     } else {
@@ -25,12 +45,7 @@ if (!isBrowser) {
     }
   } catch (e) {
     console.error('Failed to initialize Prisma client:', e);
-    // Return a mock object with empty methods if Prisma fails to initialize
-    prisma = {
-      user: { findMany: async () => [] },
-      book: { findMany: async () => [] },
-      loan: { findMany: async () => [] },
-    };
+    // Keep using the mock client if initialization fails
   }
 }
 
