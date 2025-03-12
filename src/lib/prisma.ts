@@ -1,40 +1,59 @@
-// This is a dummy implementation for browser environments
-// The actual Prisma client is only used server-side
-
-// PrismaClient is attached to the `global` object in development to prevent
-// exhausting your database connection limit.
+// Detect browser environment
 const isBrowser = typeof window !== 'undefined';
 
-// Create a mock Prisma client for browser environments
-const mockPrismaClient = {
-  user: { 
-    findMany: async () => [],
-    upsert: async () => ({}),
-    create: async () => ({}),
-    update: async () => ({})
-  },
-  book: { 
-    findMany: async () => [],
-    upsert: async () => ({}),
-    create: async () => ({}),
-    update: async () => ({})
-  },
-  loan: { 
-    findMany: async () => [],
-    upsert: async () => ({}),
-    create: async () => ({}),
-    update: async () => ({})
-  },
+// Create a comprehensive mock client with the same structure as the real client
+const createMockPrismaClient = () => {
+  // Generic mock function for database operations
+  const mockDbOperation = async () => {
+    console.log('Mock Prisma operation called in browser');
+    return {};
+  };
+
+  const mockArrayOperation = async () => {
+    console.log('Mock Prisma array operation called in browser');
+    return [];
+  };
+
+  // Create standardized model methods
+  const createMockModel = () => ({
+    findUnique: mockDbOperation,
+    findMany: mockArrayOperation,
+    findFirst: mockDbOperation,
+    create: mockDbOperation,
+    update: mockDbOperation,
+    upsert: mockDbOperation,
+    delete: mockDbOperation,
+    count: async () => 0,
+  });
+
+  // Return mock client with all models used in the application
+  return {
+    user: createMockModel(),
+    book: createMockModel(),
+    loan: createMockModel(),
+    $connect: async () => {},
+    $disconnect: async () => {},
+    $on: () => {},
+    $transaction: async (ops) => {
+      if (Array.isArray(ops)) {
+        return [];
+      }
+      return await ops(createMockPrismaClient());
+    },
+  };
 };
 
-let prisma: any = mockPrismaClient; // Default to mock for browser
+// Default to the mock client
+let prisma = createMockPrismaClient();
 
-// Only attempt to import and initialize Prisma on the server side
+// Only try to use the real Prisma client on the server
 if (!isBrowser) {
   try {
-    // Use require to avoid the import being processed by Vite
-    const { PrismaClient } = require('@prisma/client');
+    // Dynamically import Prisma only on the server side
+    // This approach prevents the browser from trying to parse the import
+    const PrismaClient = eval('require("@prisma/client").PrismaClient');
     
+    // Use global prisma instance to avoid multiple connections in development
     if (global.prisma) {
       prisma = global.prisma;
     } else {

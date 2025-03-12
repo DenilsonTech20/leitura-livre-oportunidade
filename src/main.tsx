@@ -7,10 +7,14 @@ import "./index.css";
 
 // Add polyfill for .prisma/client modules to prevent browser errors
 if (typeof window !== 'undefined') {
-  // @ts-ignore
+  // @ts-ignore - We're intentionally setting globals for browser compatibility
   window.global = window;
+  
   // Create empty modules for Prisma imports to prevent errors
+  // @ts-ignore - Intentionally creating a partial implementation
   window.module = window.module || {};
+  
+  // @ts-ignore - Intentionally creating a custom require function
   window.require = window.require || function(modulePath: string) {
     if (modulePath.includes('@prisma/client') || 
         modulePath.includes('.prisma/client')) {
