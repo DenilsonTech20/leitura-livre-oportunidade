@@ -1,3 +1,4 @@
+
 // Detect browser environment
 const isBrowser = typeof window !== 'undefined';
 
@@ -51,15 +52,17 @@ if (!isBrowser) {
   try {
     // Dynamically import Prisma only on the server side
     // This approach prevents the browser from trying to parse the import
-    const PrismaClient = eval('require("@prisma/client").PrismaClient');
+    const { PrismaClient } = require("@prisma/client");
     
     // Use global prisma instance to avoid multiple connections in development
-    if (global.prisma) {
-      prisma = global.prisma;
+    const globalForPrisma = global as unknown as { prisma: typeof prisma };
+    
+    if (globalForPrisma.prisma) {
+      prisma = globalForPrisma.prisma;
     } else {
       prisma = new PrismaClient();
       if (process.env.NODE_ENV !== 'production') {
-        global.prisma = prisma;
+        globalForPrisma.prisma = prisma;
       }
     }
   } catch (e) {

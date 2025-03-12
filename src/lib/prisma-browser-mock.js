@@ -1,33 +1,34 @@
 
-// This file provides mock implementations for Prisma in browser environments
-// It's used as an alias target in vite.config.ts
+/**
+ * This file provides a mock implementation of @prisma/client for browser environments
+ * where the actual Prisma client cannot be used.
+ */
 
-// Mock PrismaClient constructor
-export function PrismaClient() {
-  return createMockPrismaClient();
-}
+// Create a standardized mock model operation function
+const mockDbOperation = async () => {
+  console.log('Mock Prisma operation called in browser');
+  return {};
+};
 
-// Create a comprehensive mock of the Prisma client
-function createMockPrismaClient() {
-  // Generic mock function for database operations
-  const mockDbOperation = async () => {
-    console.log('Mock Prisma operation called in browser');
-    return {};
-  };
+const mockArrayOperation = async () => {
+  console.log('Mock Prisma array operation called in browser');
+  return [];
+};
 
-  // Create mock models with common methods
-  const createMockModel = () => ({
-    findUnique: mockDbOperation,
-    findMany: async () => [],
-    findFirst: mockDbOperation,
-    create: mockDbOperation,
-    update: mockDbOperation,
-    upsert: mockDbOperation,
-    delete: mockDbOperation,
-    count: async () => 0,
-  });
+// Create standardized model methods
+const createMockModel = () => ({
+  findUnique: mockDbOperation,
+  findMany: mockArrayOperation,
+  findFirst: mockDbOperation,
+  create: mockDbOperation,
+  update: mockDbOperation,
+  upsert: mockDbOperation,
+  delete: mockDbOperation,
+  count: async () => 0,
+});
 
-  // Return a mock Prisma client with models
+// Export a PrismaClient constructor that returns a mock client
+exports.PrismaClient = function() {
   return {
     user: createMockModel(),
     book: createMockModel(),
@@ -39,12 +40,10 @@ function createMockPrismaClient() {
       if (Array.isArray(ops)) {
         return [];
       }
-      return await ops(createMockPrismaClient());
+      return await ops(this);
     },
   };
-}
-
-// Default export
-export default {
-  PrismaClient
 };
+
+// Export a default object for ESM imports
+module.exports = exports;
