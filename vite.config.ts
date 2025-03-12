@@ -21,6 +21,7 @@ export default defineConfig(({ mode }) => ({
       // Provide explicit aliases for problematic modules
       '.prisma/client/index-browser': path.resolve(__dirname, './src/lib/prisma-browser-mock.js'),
       '@prisma/client': path.resolve(__dirname, './src/lib/prisma-browser-mock.js'),
+      '.prisma/client': path.resolve(__dirname, './src/lib/prisma-browser-mock.js'),
     },
   },
   optimizeDeps: {

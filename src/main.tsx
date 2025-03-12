@@ -15,7 +15,7 @@ if (typeof window !== 'undefined') {
   window.module = window.module || {};
   
   // @ts-ignore - Intentionally creating a custom require function
-  window.require = window.require || function(modulePath: string) {
+  window.require = window.require || function(modulePath) {
     if (modulePath.includes('@prisma/client') || 
         modulePath.includes('.prisma/client')) {
       console.log('Browser attempted to load Prisma client module:', modulePath);
